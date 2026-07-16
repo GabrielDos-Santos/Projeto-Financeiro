@@ -1,0 +1,200 @@
+erDiagram
+    auth_users ||--|| profiles : "estende"
+    profiles ||--|| settings : "configura"
+    profiles ||--o{ accounts : "possui"
+    profiles ||--o{ categories : "possui"
+    profiles ||--o{ credit_cards : "possui"
+    profiles ||--o{ transactions : "lanca"
+    profiles ||--o{ budgets : "define"
+    profiles ||--o{ goals : "persegue"
+    profiles ||--o{ recurring_transactions : "agenda"
+    profiles ||--o{ notifications : "recebe"
+    accounts ||--o{ transactions : "movimenta"
+    categories ||--o{ transactions : "classifica"
+    categories ||--o{ budgets : "limita"
+    categories ||--o{ recurring_transactions : "classifica"
+    accounts ||--o{ recurring_transactions : "debita"
+    credit_cards ||--o{ credit_card_invoices : "fecha"
+    credit_cards ||--o{ transactions : "compra em"
+    credit_cards ||--o{ recurring_transactions : "lanca em"
+    credit_card_invoices ||--o{ transactions : "agrupa"
+    credit_card_invoices ||--o{ transaction_installments : "agrupa"
+    transactions ||--o{ transaction_installments : "parcela em"
+    transactions ||--o{ attachments : "anexa"
+    recurring_transactions ||--o{ transactions : "materializa"
+
+    auth_users {
+        uuid id PK
+        text email UK
+        text encrypted_password
+    }
+
+    profiles {
+        uuid id PK "FK auth.users"
+        text full_name
+        text avatar_url
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    settings {
+        uuid user_id PK "FK profiles"
+        text theme
+        char_3 currency
+        text locale
+        boolean notify_budget_alerts
+        boolean notify_invoice_due
+        timestamptz updated_at
+    }
+
+    accounts {
+        uuid id PK
+        uuid user_id FK
+        text name "unique por usuario"
+        account_type type "bank wallet cash investment digital"
+        bigint initial_balance_cents
+        text color
+        text icon
+        boolean is_archived
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    categories {
+        uuid id PK
+        uuid user_id FK
+        text name "unique por usuario e tipo"
+        category_type type "income expense"
+        text color
+        text icon
+        boolean is_archived
+        timestamptz created_at
+    }
+
+    transactions {
+        uuid id PK
+        uuid user_id FK
+        uuid account_id FK "null se compra no cartao"
+        uuid credit_card_id FK "null se em conta"
+        uuid invoice_id FK
+        uuid category_id FK "null em transferencia"
+        transaction_type type "income expense transfer"
+        transaction_status status "paid pending cancelled"
+        text description
+        text notes
+        bigint amount_cents "sempre positivo"
+        date date "competencia"
+        timestamptz paid_at
+        uuid transfer_group_id "par da transferencia"
+        uuid recurring_id FK
+        boolean is_installment_parent
+        int installments_total
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    transaction_installments {
+        uuid id PK
+        uuid transaction_id FK "compra-mae"
+        uuid user_id FK
+        int installment_number "unique por compra"
+        bigint amount_cents
+        date due_date
+        transaction_status status
+        uuid invoice_id FK "fatura do mes da parcela"
+        timestamptz paid_at
+    }
+
+    credit_cards {
+        uuid id PK
+        uuid user_id FK
+        text name "unique por usuario"
+        text bank
+        bigint limit_cents
+        int closing_day "1 a 28"
+        int due_day "1 a 28"
+        text color
+        text icon
+        boolean is_archived
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    credit_card_invoices {
+        uuid id PK
+        uuid user_id FK
+        uuid credit_card_id FK
+        date reference_month "unique por cartao"
+        date closing_date
+        date due_date
+        invoice_status status "open closed paid"
+        uuid payment_transaction_id FK
+        timestamptz paid_at
+    }
+
+    recurring_transactions {
+        uuid id PK
+        uuid user_id FK
+        text description
+        bigint amount_cents
+        transaction_type type "income ou expense"
+        uuid category_id FK
+        uuid account_id FK
+        uuid credit_card_id FK
+        recurrence_freq frequency "daily weekly monthly yearly"
+        int interval "personalizado = freq x intervalo"
+        date start_date
+        date end_date
+        date next_run_date "cursor do gerador"
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    budgets {
+        uuid id PK
+        uuid user_id FK
+        uuid category_id FK
+        date month "unique por usuario categoria mes"
+        bigint amount_cents
+        numeric alert_threshold "default 0.80"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    goals {
+        uuid id PK
+        uuid user_id FK
+        text name
+        text description
+        bigint target_amount_cents
+        bigint current_amount_cents
+        date target_date
+        text color
+        text icon
+        goal_status status "active completed archived"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    attachments {
+        uuid id PK
+        uuid user_id FK
+        uuid transaction_id FK
+        text file_name
+        text storage_path UK "bucket attachments"
+        text mime_type "imagens e pdf"
+        int size_bytes "max 10MB"
+        timestamptz created_at
+    }
+
+    notifications {
+        uuid id PK
+        uuid user_id FK
+        notification_type type "budget_alert invoice_due goal_reached system"
+        text title
+        text body
+        jsonb metadata
+        timestamptz read_at "null = nao lida"
+        timestamptz created_at
+    }
