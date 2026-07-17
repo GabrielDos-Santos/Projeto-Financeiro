@@ -6,6 +6,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 import {
+  attachmentIdSchema,
+  attachmentMetaSchema,
   entryFormSchema,
   entryStatusSchema,
   transactionIdSchema,
@@ -287,6 +289,30 @@ export async function deleteEntry(
   } = await supabase.auth.getUser();
   if (!user) return fail("Sessão expirada. Entre novamente.");
 
+  // Arquivos do Storage não caem por cascade (só a linha de `attachments`):
+  // remove antes, senão viram órfãos no bucket. Melhor esforço — não bloqueia.
+  const transactionIds: string[] = [];
+  if ("transferGroupId" in parsedTarget.data) {
+    const { data: legs } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("transfer_group_id", parsedTarget.data.transferGroupId);
+    transactionIds.push(...(legs ?? []).map((leg) => leg.id));
+  } else {
+    transactionIds.push(parsedTarget.data.transactionId);
+  }
+  for (const transactionId of transactionIds) {
+    const prefix = `${user.id}/${transactionId}`;
+    const { data: files } = await supabase.storage
+      .from("attachments")
+      .list(prefix);
+    if (files && files.length > 0) {
+      await supabase.storage
+        .from("attachments")
+        .remove(files.map((file) => `${prefix}/${file.name}`));
+    }
+  }
+
   let query = supabase.from("transactions").delete({ count: "exact" });
   query =
     "transferGroupId" in parsedTarget.data
@@ -304,5 +330,80 @@ export async function deleteEntry(
   if (count === 0) return fail("Lançamento não encontrado.");
 
   revalidate();
+  return ok(null);
+}
+
+export async function createAttachment(
+  input: unknown,
+): Promise<ActionResult<null>> {
+  const parsed = attachmentMetaSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail("Arquivo inválido. Confira tipo e tamanho (máx. 10 MB).");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("Sessão expirada. Entre novamente.");
+
+  // O path precisa estar dentro do prefixo do próprio usuário E do lançamento
+  // informado — espelha a policy de path do bucket (ARQUITETURA.md §4.2).
+  if (
+    !parsed.data.storagePath.startsWith(
+      `${user.id}/${parsed.data.transactionId}/`,
+    )
+  ) {
+    return fail("Arquivo inválido.");
+  }
+
+  const { error } = await supabase.from("attachments").insert({
+    user_id: user.id,
+    transaction_id: parsed.data.transactionId,
+    file_name: parsed.data.fileName,
+    storage_path: parsed.data.storagePath,
+    mime_type: parsed.data.mimeType,
+    size_bytes: parsed.data.sizeBytes,
+  });
+
+  if (error) {
+    return fail("Não foi possível registrar o anexo. Tente novamente.");
+  }
+  return ok(null);
+}
+
+export async function deleteAttachment(
+  id: unknown,
+): Promise<ActionResult<null>> {
+  const parsedId = attachmentIdSchema.safeParse(id);
+  if (!parsedId.success) return fail("Anexo inválido.");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("Sessão expirada. Entre novamente.");
+
+  const { data: attachment } = await supabase
+    .from("attachments")
+    .select("id, storage_path")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+  if (!attachment) return fail("Anexo não encontrado.");
+
+  const { error: storageError } = await supabase.storage
+    .from("attachments")
+    .remove([attachment.storage_path]);
+  if (storageError) {
+    return fail("Não foi possível remover o arquivo. Tente novamente.");
+  }
+
+  const { error } = await supabase
+    .from("attachments")
+    .delete()
+    .eq("id", parsedId.data);
+  if (error) {
+    return fail("Não foi possível excluir o anexo. Tente novamente.");
+  }
   return ok(null);
 }

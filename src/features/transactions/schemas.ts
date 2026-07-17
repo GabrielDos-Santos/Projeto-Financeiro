@@ -52,3 +52,34 @@ export const entryStatusSchema = z.enum(
   ["paid", "pending", "cancelled"],
   "Status inválido",
 );
+
+/** Espelha os CHECKs de `attachments` (whitelist de mime + 10 MB). */
+export const ATTACHMENT_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+] as const;
+
+export const ATTACHMENT_MAX_BYTES = 10_485_760; // 10 MB
+
+export const attachmentMetaSchema = z.object({
+  transactionId: z.uuid("Lançamento inválido"),
+  fileName: z
+    .string()
+    .trim()
+    .min(1, "Nome do arquivo inválido")
+    .max(255, "Nome do arquivo muito longo"),
+  storagePath: z.string().min(1).max(500),
+  mimeType: z.enum(ATTACHMENT_MIME_TYPES, "Tipo de arquivo não permitido"),
+  sizeBytes: z
+    .number()
+    .int()
+    .min(1, "Arquivo vazio")
+    .max(ATTACHMENT_MAX_BYTES, "O arquivo excede 10 MB"),
+});
+
+export type AttachmentMetaInput = z.infer<typeof attachmentMetaSchema>;
+
+export const attachmentIdSchema = z.uuid("Anexo inválido");

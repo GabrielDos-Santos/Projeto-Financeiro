@@ -23,6 +23,7 @@ import {
   type TransferFormInput,
 } from "../schemas";
 import type { AccountOption, CategoryOption, Entry } from "../types";
+import { AttachmentsList } from "./attachments-list";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -40,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -130,6 +132,12 @@ export function TransactionFormDrawer({
               duplicate={duplicate}
               onDone={() => onOpenChange(false)}
             />
+          )}
+          {isEditing && entry?.transaction_id && (
+            <>
+              <Separator />
+              <AttachmentsList transactionId={entry.transaction_id} />
+            </>
           )}
         </div>
       </SheetContent>
