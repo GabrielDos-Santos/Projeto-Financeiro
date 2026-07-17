@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
-import { LayoutDashboard } from "lucide-react";
+import { Suspense } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { SummaryCards } from "@/features/dashboard/components/summary-cards";
+import { MonthlyChartSection } from "@/features/dashboard/components/monthly-chart-section";
+import { CategorySpendingSection } from "@/features/dashboard/components/category-spending-section";
+import { RecentTransactions } from "@/features/dashboard/components/recent-transactions";
+import { CardsOverview } from "@/features/dashboard/components/cards-overview";
+import {
+  PanelSkeleton,
+  SummaryCardsSkeleton,
+} from "@/features/dashboard/components/dashboard-skeletons";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -13,21 +21,32 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Visão geral das suas finanças."
       />
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-            <LayoutDashboard className="size-6" aria-hidden />
-          </div>
-          <div className="space-y-1">
-            <h2 className="font-semibold">Em construção</h2>
-            <p className="mx-auto max-w-sm text-sm text-balance text-muted-foreground">
-              Os widgets do dashboard (saldo consolidado, fluxo do mês e
-              gráficos) chegam na Fase 8. Sua conta e o shell do app já estão
-              prontos.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+
+      <Suspense fallback={<SummaryCardsSkeleton />}>
+        <SummaryCards />
+      </Suspense>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Suspense fallback={<PanelSkeleton />}>
+            <MonthlyChartSection />
+          </Suspense>
+        </div>
+        <Suspense fallback={<PanelSkeleton height={220} />}>
+          <CategorySpendingSection />
+        </Suspense>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Suspense fallback={<PanelSkeleton height={320} />}>
+            <RecentTransactions />
+          </Suspense>
+        </div>
+        <Suspense fallback={<PanelSkeleton height={220} />}>
+          <CardsOverview />
+        </Suspense>
+      </div>
     </div>
   );
 }
