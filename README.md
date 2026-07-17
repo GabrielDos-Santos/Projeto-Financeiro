@@ -35,6 +35,29 @@ npx supabase link --project-ref SEU-PROJECT-REF
 
 **3. Deploy na Vercel** — em [vercel.com/new](https://vercel.com/new) importe o repositório (framework Next.js é detectado automaticamente) e cadastre as variáveis de ambiente do `.env.example` — `SUPABASE_SERVICE_ROLE_KEY` **sem** o prefixo `NEXT_PUBLIC_` e marcada apenas para o ambiente de produção/preview do servidor. Cada push na `main` gera um deploy.
 
+**4. Auth no painel do Supabase (necessário para a Fase 1 funcionar)** — no dashboard do projeto:
+
+_Authentication → URL Configuration:_
+
+- **Site URL:** `http://localhost:3000` (troque pela URL da Vercel quando for para produção — e atualize `NEXT_PUBLIC_SITE_URL` junto).
+- **Redirect URLs:** adicione `http://localhost:3000/auth/callback`, `http://localhost:3000/auth/confirm` e, depois do deploy, as mesmas rotas na URL de produção (`https://SEU-APP.vercel.app/auth/callback` etc.).
+
+_Authentication → Emails → Templates_ — troque o link dos templates para o fluxo `token_hash` (funciona em qualquer navegador/dispositivo, não só no que iniciou o cadastro):
+
+- **Confirm signup** — substitua o `href` do botão por:
+
+  ```
+  {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup&next=/dashboard
+  ```
+
+- **Reset password** — substitua o `href` do botão por:
+
+  ```
+  {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/redefinir-senha
+  ```
+
+> O e-mail padrão do Supabase (sem SMTP próprio) tem limite baixo de envio por hora — suficiente para desenvolvimento; SMTP próprio fica para quando/se for necessário.
+
 ## Scripts
 
 | Script              | Faz                                                                                               |
