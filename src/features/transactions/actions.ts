@@ -5,11 +5,20 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
+import { addMonths } from "date-fns";
+
+import { parseDateOnly, toDateOnly } from "@/lib/dates";
+import { buildInstallmentPlan } from "@/services/installments";
+import { splitInstallments } from "@/lib/money";
 import {
   attachmentIdSchema,
   attachmentMetaSchema,
+  cardInstallmentPurchaseSchema,
+  cardPurchaseSchema,
   entryFormSchema,
   entryStatusSchema,
+  installmentIdSchema,
+  installmentPurchaseSchema,
   transactionIdSchema,
   transferFormSchema,
   transferGroupIdSchema,
@@ -24,6 +33,12 @@ function paidAtFor(status: "paid" | "pending" | "cancelled"): string | null {
 function revalidate() {
   revalidatePath("/transacoes");
   revalidatePath("/contas"); // saldos derivados mudam junto (D2)
+}
+
+function revalidateWithCard(cardId: string) {
+  revalidate();
+  revalidatePath("/cartoes"); // limite disponível e fatura aberta mudam
+  revalidatePath(`/cartoes/${cardId}`);
 }
 
 export async function createTransaction(
@@ -111,6 +126,259 @@ export async function updateTransaction(
     return fail("Não foi possível salvar o lançamento. Tente novamente.");
   }
   if (count === 0) return fail("Lançamento não encontrado.");
+
+  revalidate();
+  return ok(null);
+}
+
+export async function createInstallmentPurchase(
+  input: unknown,
+): Promise<ActionResult<null>> {
+  const parsed = installmentPurchaseSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Dados inválidos. Revise os campos.",
+      z.flattenError(parsed.error).fieldErrors,
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("Sessão expirada. Entre novamente.");
+
+  const plan = buildInstallmentPlan(
+    parsed.data.amountCents,
+    parsed.data.installmentsTotal,
+    parsed.data.firstDueDate,
+  );
+
+  // Compra-mãe (valor TOTAL; fora de v_entries — D4). O status dela não move
+  // saldo: quem move é cada parcela paga.
+  const { data: parent, error: parentError } = await supabase
+    .from("transactions")
+    .insert({
+      user_id: user.id,
+      type: "expense",
+      status: "pending",
+      description: parsed.data.description,
+      notes: parsed.data.notes || null,
+      amount_cents: parsed.data.amountCents,
+      date: parsed.data.date,
+      account_id: parsed.data.accountId,
+      category_id: parsed.data.categoryId,
+      is_installment_parent: true,
+      installments_total: parsed.data.installmentsTotal,
+    })
+    .select("id")
+    .single();
+
+  if (parentError || !parent) {
+    return fail("Não foi possível criar a compra parcelada. Tente novamente.");
+  }
+
+  const { error: installmentsError } = await supabase
+    .from("transaction_installments")
+    .insert(
+      plan.map((item) => ({
+        transaction_id: parent.id,
+        user_id: user.id,
+        installment_number: item.number,
+        amount_cents: item.amountCents,
+        due_date: item.dueDate,
+        status: "pending" as const,
+      })),
+    );
+
+  if (installmentsError) {
+    // Rollback: sem as parcelas a mãe ficaria invisível (fora de v_entries).
+    await supabase.from("transactions").delete().eq("id", parent.id);
+    return fail("Não foi possível criar as parcelas. Tente novamente.");
+  }
+
+  revalidate();
+  return ok(null);
+}
+
+export async function createCardPurchase(
+  input: unknown,
+): Promise<ActionResult<null>> {
+  const parsed = cardPurchaseSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Dados inválidos. Revise os campos.",
+      z.flattenError(parsed.error).fieldErrors,
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("Sessão expirada. Entre novamente.");
+
+  // Fatura da competência da compra (upsert idempotente — decisão Fase 2).
+  const { data: invoiceId, error: invoiceError } = await supabase.rpc(
+    "get_or_create_invoice",
+    {
+      p_credit_card_id: parsed.data.creditCardId,
+      p_purchase_date: parsed.data.date,
+    },
+  );
+  if (invoiceError || !invoiceId) {
+    return fail("Não foi possível abrir a fatura do cartão. Tente novamente.");
+  }
+
+  // Compra no cartão: expense + credit_card_id + invoice_id, sem conta (D5).
+  // Nasce pendente; o pagamento da fatura propaga `paid`.
+  const { error } = await supabase.from("transactions").insert({
+    user_id: user.id,
+    type: "expense",
+    status: "pending",
+    description: parsed.data.description,
+    notes: parsed.data.notes || null,
+    amount_cents: parsed.data.amountCents,
+    date: parsed.data.date,
+    credit_card_id: parsed.data.creditCardId,
+    invoice_id: invoiceId,
+    category_id: parsed.data.categoryId,
+  });
+
+  if (error) {
+    return fail("Não foi possível lançar a compra. Tente novamente.");
+  }
+
+  revalidateWithCard(parsed.data.creditCardId);
+  return ok(null);
+}
+
+export async function createCardInstallmentPurchase(
+  input: unknown,
+): Promise<ActionResult<null>> {
+  const parsed = cardInstallmentPurchaseSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(
+      "Dados inválidos. Revise os campos.",
+      z.flattenError(parsed.error).fieldErrors,
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("Sessão expirada. Entre novamente.");
+
+  const amounts = splitInstallments(
+    parsed.data.amountCents,
+    parsed.data.installmentsTotal,
+  );
+  const purchaseDate = parseDateOnly(parsed.data.date);
+
+  // Cada parcela cai na fatura do seu mês (compra + k meses). Abre/reaproveita
+  // todas as faturas necessárias e lê a data de vencimento de cada uma.
+  const monthDates = amounts.map((_, k) =>
+    toDateOnly(addMonths(purchaseDate, k)),
+  );
+  const invoiceIds: string[] = [];
+  for (const monthDate of monthDates) {
+    const { data: invoiceId, error: invoiceError } = await supabase.rpc(
+      "get_or_create_invoice",
+      {
+        p_credit_card_id: parsed.data.creditCardId,
+        p_purchase_date: monthDate,
+      },
+    );
+    if (invoiceError || !invoiceId) {
+      return fail(
+        "Não foi possível abrir as faturas do cartão. Tente de novo.",
+      );
+    }
+    invoiceIds.push(invoiceId);
+  }
+
+  const { data: invoices, error: invoicesError } = await supabase
+    .from("credit_card_invoices")
+    .select("id, due_date")
+    .in("id", invoiceIds);
+  if (invoicesError || !invoices) {
+    return fail("Não foi possível ler as faturas do cartão. Tente novamente.");
+  }
+  const dueDateById = new Map(invoices.map((inv) => [inv.id, inv.due_date]));
+
+  // Compra-mãe: na fatura do mês da compra (1ª parcela).
+  const { data: parent, error: parentError } = await supabase
+    .from("transactions")
+    .insert({
+      user_id: user.id,
+      type: "expense",
+      status: "pending",
+      description: parsed.data.description,
+      notes: parsed.data.notes || null,
+      amount_cents: parsed.data.amountCents,
+      date: parsed.data.date,
+      credit_card_id: parsed.data.creditCardId,
+      invoice_id: invoiceIds[0],
+      category_id: parsed.data.categoryId,
+      is_installment_parent: true,
+      installments_total: parsed.data.installmentsTotal,
+    })
+    .select("id")
+    .single();
+
+  if (parentError || !parent) {
+    return fail("Não foi possível criar a compra parcelada. Tente novamente.");
+  }
+
+  const { error: installmentsError } = await supabase
+    .from("transaction_installments")
+    .insert(
+      amounts.map((amountCents, k) => ({
+        transaction_id: parent.id,
+        user_id: user.id,
+        installment_number: k + 1,
+        amount_cents: amountCents,
+        due_date: dueDateById.get(invoiceIds[k]!)!,
+        status: "pending" as const,
+        invoice_id: invoiceIds[k],
+      })),
+    );
+
+  if (installmentsError) {
+    await supabase.from("transactions").delete().eq("id", parent.id);
+    return fail("Não foi possível criar as parcelas. Tente novamente.");
+  }
+
+  revalidateWithCard(parsed.data.creditCardId);
+  return ok(null);
+}
+
+export async function setInstallmentStatus(
+  id: unknown,
+  status: unknown,
+): Promise<ActionResult<null>> {
+  const parsedId = installmentIdSchema.safeParse(id);
+  if (!parsedId.success) return fail("Parcela inválida.");
+  const parsedStatus = entryStatusSchema.safeParse(status);
+  if (!parsedStatus.success) return fail("Status inválido.");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("Sessão expirada. Entre novamente.");
+
+  const { error, count } = await supabase
+    .from("transaction_installments")
+    .update(
+      { status: parsedStatus.data, paid_at: paidAtFor(parsedStatus.data) },
+      { count: "exact" },
+    )
+    .eq("id", parsedId.data);
+
+  if (error) return fail("Não foi possível atualizar a parcela.");
+  if (count === 0) return fail("Parcela não encontrada.");
 
   revalidate();
   return ok(null);

@@ -27,6 +27,12 @@ export type CategoryOption = {
   color: string | null;
   icon: string | null;
 };
+export type CardOption = {
+  id: string;
+  name: string;
+  closingDay: number;
+  dueDay: number;
+};
 
 /**
  * Valor com sinal para exibição: despesa e perna de saída são negativas;

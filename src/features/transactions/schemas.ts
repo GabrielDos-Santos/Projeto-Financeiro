@@ -42,8 +42,68 @@ export const transferFormSchema = z
     path: ["toAccountId"],
   });
 
+/** Compra parcelada em conta (D4) — cartão parcelado entra na Fase 6. */
+export const installmentPurchaseSchema = z
+  .object({
+    description: baseFields.description,
+    amountCents: baseFields.amountCents, // valor TOTAL da compra
+    installmentsTotal: z
+      .number("Informe as parcelas")
+      .int("Parcelas inválidas")
+      .min(2, "Mínimo de 2 parcelas")
+      .max(120, "Máximo de 120 parcelas"),
+    date: dateOnlySchema, // data da compra (competência da mãe)
+    firstDueDate: dateOnlySchema, // vencimento da 1ª parcela (âncora)
+    accountId: z.uuid("Escolha a conta"),
+    categoryId: z.uuid("Escolha a categoria"),
+    notes: baseFields.notes,
+  })
+  .refine((data) => data.amountCents >= data.installmentsTotal, {
+    message: "Valor total muito baixo para esse número de parcelas",
+    path: ["amountCents"],
+  });
+
+/** Compra à vista NO CARTÃO (D5) — vira expense com credit_card_id + invoice_id. */
+export const cardPurchaseSchema = z.object({
+  description: baseFields.description,
+  amountCents: baseFields.amountCents,
+  date: dateOnlySchema, // data da compra → define a fatura (competência)
+  creditCardId: z.uuid("Escolha o cartão"),
+  categoryId: z.uuid("Escolha a categoria"),
+  notes: baseFields.notes,
+});
+
+/** Compra parcelada no cartão — mãe + N parcelas, cada uma na fatura do seu mês. */
+export const cardInstallmentPurchaseSchema = z
+  .object({
+    description: baseFields.description,
+    amountCents: baseFields.amountCents, // valor TOTAL
+    installmentsTotal: z
+      .number("Informe as parcelas")
+      .int("Parcelas inválidas")
+      .min(2, "Mínimo de 2 parcelas")
+      .max(120, "Máximo de 120 parcelas"),
+    date: dateOnlySchema, // data da compra
+    creditCardId: z.uuid("Escolha o cartão"),
+    categoryId: z.uuid("Escolha a categoria"),
+    notes: baseFields.notes,
+  })
+  .refine((data) => data.amountCents >= data.installmentsTotal, {
+    message: "Valor total muito baixo para esse número de parcelas",
+    path: ["amountCents"],
+  });
+
 export type EntryFormInput = z.infer<typeof entryFormSchema>;
 export type TransferFormInput = z.infer<typeof transferFormSchema>;
+export type InstallmentPurchaseInput = z.infer<
+  typeof installmentPurchaseSchema
+>;
+export type CardPurchaseInput = z.infer<typeof cardPurchaseSchema>;
+export type CardInstallmentPurchaseInput = z.infer<
+  typeof cardInstallmentPurchaseSchema
+>;
+
+export const installmentIdSchema = z.uuid("Parcela inválida");
 
 export const transactionIdSchema = z.uuid("Lançamento inválido");
 export const transferGroupIdSchema = z.uuid("Transferência inválida");

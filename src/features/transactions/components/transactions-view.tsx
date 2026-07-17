@@ -6,7 +6,12 @@ import { ArrowLeftRight, Loader2, Plus } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import type { EntriesPage, EntryFilters } from "../queries";
 import { useEntries } from "../use-entries";
-import type { AccountOption, CategoryOption, Entry } from "../types";
+import type {
+  AccountOption,
+  CardOption,
+  CategoryOption,
+  Entry,
+} from "../types";
 import { TransactionFilters } from "./transaction-filters";
 import { TransactionFormDrawer } from "./transaction-form-drawer";
 import { TransactionsTable } from "./transactions-table";
@@ -24,10 +29,12 @@ type DrawerState = {
 export function TransactionsView({
   accounts,
   categories,
+  cards,
   initialFirstPage,
 }: {
   accounts: AccountOption[];
   categories: CategoryOption[];
+  cards: CardOption[];
   initialFirstPage: EntriesPage;
 }) {
   const [filters, setFilters] = React.useState<EntryFilters>({});
@@ -109,6 +116,7 @@ export function TransactionsView({
               entries={entries}
               accounts={accounts}
               categories={categories}
+              cards={cards}
               onEdit={(entry) => setDrawer({ open: true, entry })}
               onDuplicate={(entry) =>
                 setDrawer({ open: true, entry, duplicate: true })
@@ -139,6 +147,7 @@ export function TransactionsView({
         key={`${drawer.entry?.id ?? "new"}-${drawer.duplicate ?? false}`}
         accounts={accounts}
         categories={categories}
+        cards={cards}
         open={drawer.open}
         onOpenChange={(open) => setDrawer((state) => ({ ...state, open }))}
         entry={drawer.entry}

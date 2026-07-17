@@ -31,3 +31,8 @@ export function formatDateBR(iso: string): string {
 export function formatDateLongBR(iso: string): string {
   return format(parseDateOnly(iso), "d 'de' MMMM 'de' yyyy", { locale: ptBR });
 }
+
+/** "2026-07-01" → "julho de 2026" (competência de fatura/orçamento). */
+export function formatMonthBR(iso: string): string {
+  return format(parseDateOnly(iso), "MMMM 'de' yyyy", { locale: ptBR });
+}
