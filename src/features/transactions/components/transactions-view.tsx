@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftRight, Loader2, Plus } from "lucide-react";
 
 import { useDebounce } from "@/hooks/use-debounce";
@@ -45,6 +46,17 @@ export function TransactionsView({
   );
 
   const [drawer, setDrawer] = React.useState<DrawerState>({ open: false });
+
+  // Vindo da Command Palette ("Novo lançamento" → /transacoes?novo=1):
+  // abre o drawer já na carga e limpa a query string (não fica no histórico).
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  React.useEffect(() => {
+    if (searchParams.get("novo") === "1") {
+      setDrawer({ open: true });
+      router.replace("/transacoes");
+    }
+  }, [searchParams, router]);
 
   const query = useEntries(effectiveFilters, initialFirstPage);
   const entries = React.useMemo(

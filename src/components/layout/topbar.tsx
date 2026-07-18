@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Search, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { NotificationsPopover } from "@/features/notifications/components/notifications-popover";
+import { COMMAND_PALETTE_OPEN_EVENT } from "./command-palette";
 import { useTheme } from "./theme-provider";
 import { currentSectionLabel } from "./nav-items";
 import { UserMenu, type SessionUser } from "./user-menu";
@@ -30,6 +31,16 @@ export function Topbar({ user }: { user: SessionUser }) {
         )}
       </div>
       <div className="ml-auto flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Pesquisar (Ctrl+K)"
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent(COMMAND_PALETTE_OPEN_EVENT))
+          }
+        >
+          <Search className="size-4" aria-hidden />
+        </Button>
         <NotificationsPopover />
         <Button
           variant="ghost"
