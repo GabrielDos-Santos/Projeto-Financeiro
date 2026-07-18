@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { NotificationsPopover } from "@/features/notifications/components/notifications-popover";
 import { useTheme } from "./theme-provider";
 import { currentSectionLabel } from "./nav-items";
 import { UserMenu, type SessionUser } from "./user-menu";
@@ -29,6 +30,7 @@ export function Topbar({ user }: { user: SessionUser }) {
         )}
       </div>
       <div className="ml-auto flex items-center gap-1">
+        <NotificationsPopover />
         <Button
           variant="ghost"
           size="icon"

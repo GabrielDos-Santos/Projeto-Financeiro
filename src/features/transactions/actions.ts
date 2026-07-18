@@ -10,6 +10,8 @@ import { addMonths } from "date-fns";
 import { parseDateOnly, toDateOnly } from "@/lib/dates";
 import { buildInstallmentPlan } from "@/services/installments";
 import { splitInstallments } from "@/lib/money";
+import { maybeBudgetAlert } from "@/features/budgets/alert";
+import type { BudgetAlert } from "@/features/budgets/types";
 import {
   attachmentIdSchema,
   attachmentMetaSchema,
@@ -43,7 +45,7 @@ function revalidateWithCard(cardId: string) {
 
 export async function createTransaction(
   input: unknown,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<{ alert: BudgetAlert | null }>> {
   const parsed = entryFormSchema.safeParse(input);
   if (!parsed.success) {
     return fail(
@@ -76,7 +78,16 @@ export async function createTransaction(
   }
 
   revalidate();
-  return ok(null);
+  const alert =
+    parsed.data.type === "expense"
+      ? await maybeBudgetAlert(
+          supabase,
+          user.id,
+          parsed.data.categoryId,
+          parsed.data.date,
+        )
+      : null;
+  return ok({ alert });
 }
 
 export async function updateTransaction(
@@ -133,7 +144,7 @@ export async function updateTransaction(
 
 export async function createInstallmentPurchase(
   input: unknown,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<{ alert: BudgetAlert | null }>> {
   const parsed = installmentPurchaseSchema.safeParse(input);
   if (!parsed.success) {
     return fail(
@@ -198,12 +209,21 @@ export async function createInstallmentPurchase(
   }
 
   revalidate();
-  return ok(null);
+  // Só a 1ª parcela pode cair no mês corrente; orçamento é por competência
+  // (mês do vencimento de cada parcela) — as demais serão checadas quando
+  // vencerem (a query de alerta roda de novo ao criar/editar cada mês).
+  const alert = await maybeBudgetAlert(
+    supabase,
+    user.id,
+    parsed.data.categoryId,
+    plan[0]!.dueDate,
+  );
+  return ok({ alert });
 }
 
 export async function createCardPurchase(
   input: unknown,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<{ alert: BudgetAlert | null }>> {
   const parsed = cardPurchaseSchema.safeParse(input);
   if (!parsed.success) {
     return fail(
@@ -250,12 +270,18 @@ export async function createCardPurchase(
   }
 
   revalidateWithCard(parsed.data.creditCardId);
-  return ok(null);
+  const alert = await maybeBudgetAlert(
+    supabase,
+    user.id,
+    parsed.data.categoryId,
+    parsed.data.date,
+  );
+  return ok({ alert });
 }
 
 export async function createCardInstallmentPurchase(
   input: unknown,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<{ alert: BudgetAlert | null }>> {
   const parsed = cardInstallmentPurchaseSchema.safeParse(input);
   if (!parsed.success) {
     return fail(
@@ -351,7 +377,13 @@ export async function createCardInstallmentPurchase(
   }
 
   revalidateWithCard(parsed.data.creditCardId);
-  return ok(null);
+  const alert = await maybeBudgetAlert(
+    supabase,
+    user.id,
+    parsed.data.categoryId,
+    dueDateById.get(invoiceIds[0]!)!,
+  );
+  return ok({ alert });
 }
 
 export async function setInstallmentStatus(

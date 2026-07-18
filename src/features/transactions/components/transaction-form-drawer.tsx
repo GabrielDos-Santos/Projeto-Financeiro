@@ -71,8 +71,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/shared/date-picker";
 import { DomainIcon } from "@/components/shared/domain-icon";
 import { MoneyInput } from "@/components/shared/money-input";
+import type { BudgetAlert } from "@/features/budgets/types";
 
 type FormKind = "expense" | "income" | "card" | "transfer";
+
+/** Toast extra quando a despesa cruza o teto do orçamento da categoria. */
+function showBudgetAlertToast(alert: BudgetAlert | null | undefined) {
+  if (!alert) return;
+  toast.warning(
+    `Orçamento de ${alert.categoryName} atingiu ${alert.usagePct}% do teto.`,
+  );
+}
 
 type TransactionFormDrawerProps = {
   accounts: AccountOption[];
@@ -276,6 +285,9 @@ function EntryForm({
           : isEditing
             ? "Lançamento atualizado."
             : "Lançamento criado.",
+      );
+      showBudgetAlertToast(
+        result.data && "alert" in result.data ? result.data.alert : null,
       );
       queryClient.invalidateQueries({ queryKey: ["entries"] });
       onDone();
@@ -561,6 +573,7 @@ function CardPurchaseForm({
           ? `Compra em ${installmentsTotal}x lançada no cartão.`
           : "Compra lançada no cartão.",
       );
+      showBudgetAlertToast(result.data.alert);
       queryClient.invalidateQueries({ queryKey: ["entries"] });
       onDone();
     });

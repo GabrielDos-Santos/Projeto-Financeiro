@@ -7,6 +7,7 @@ import { MonthlyChartSection } from "@/features/dashboard/components/monthly-cha
 import { CategorySpendingSection } from "@/features/dashboard/components/category-spending-section";
 import { RecentTransactions } from "@/features/dashboard/components/recent-transactions";
 import { CardsOverview } from "@/features/dashboard/components/cards-overview";
+import { GoalsOverview } from "@/features/dashboard/components/goals-overview";
 import {
   PanelSkeleton,
   SummaryCardsSkeleton,
@@ -47,6 +48,10 @@ export default function DashboardPage() {
           <CardsOverview />
         </Suspense>
       </div>
+
+      <Suspense fallback={<PanelSkeleton height={160} />}>
+        <GoalsOverview />
+      </Suspense>
     </div>
   );
 }
