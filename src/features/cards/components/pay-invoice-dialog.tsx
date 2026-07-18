@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { History } from "lucide-react";
+
 import { todayISO } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { applyFieldErrors } from "@/lib/form";
@@ -17,6 +19,7 @@ import { payInvoice } from "../actions";
 import { payInvoiceSchema, type PayInvoiceInput } from "../schemas";
 import type { InvoiceTotals } from "../types";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +69,7 @@ export function PayInvoiceDialog({
       accountId: accounts[0]?.id ?? "",
       categoryId: "",
       date: todayISO(),
+      affectsBalance: true,
     },
   });
 
@@ -76,9 +80,17 @@ export function PayInvoiceDialog({
         accountId: accounts[0]?.id ?? "",
         categoryId: "",
         date: todayISO(),
+        affectsBalance: true,
       });
     }
   }, [open, invoice.invoice_id, accounts, form]);
+
+  // Hint (decisão 57): fatura de mês passado é candidata a já estar
+  // refletida no saldo inicial da conta — sugere marcar "pagamento histórico".
+  const currentMonthISO = `${todayISO().slice(0, 7)}-01`;
+  const isPastMonth = Boolean(
+    invoice.reference_month && invoice.reference_month < currentMonthISO,
+  );
 
   function onSubmit(values: PayInvoiceInput) {
     startTransition(async () => {
@@ -179,10 +191,36 @@ export function PayInvoiceDialog({
                 )}
               />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               A despesa de pagamento debita o saldo da conta, mas não conta de
               novo nos relatórios — as compras já contam por competência.
             </p>
+            <FormField
+              control={form.control}
+              name="affectsBalance"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={!field.value}
+                      onCheckedChange={(checked) => field.onChange(!checked)}
+                    />
+                  </FormControl>
+                  <div className="space-y-0.5 leading-none">
+                    <FormLabel className="flex items-center gap-1.5 font-normal">
+                      <History className="size-3.5" aria-hidden />
+                      Pagamento histórico
+                    </FormLabel>
+                    <p className="text-muted-foreground text-xs">
+                      Não afeta o saldo atual — use se esta fatura já estava
+                      refletida no saldo inicial da conta.
+                      {isPastMonth &&
+                        " Esta fatura é de um mês passado: talvez seja o seu caso."}
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
             <DialogFooter>
               <Button
                 type="button"

@@ -14,7 +14,11 @@ import type {
   CategoryOption,
 } from "@/features/transactions/types";
 import { reopenInvoice } from "../actions";
-import { INVOICE_STATUS_LABELS, type InvoiceTotals } from "../types";
+import {
+  INVOICE_STATUS_LABELS,
+  type InvoiceTotals,
+  type InvoiceWithHistory,
+} from "../types";
 import { PayInvoiceDialog } from "./pay-invoice-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { HistoricalBadge } from "@/components/shared/historical-badge";
 import { Receipt } from "lucide-react";
 
 function StatusBadge({ status }: { status: InvoiceTotals["status"] }) {
@@ -97,7 +102,7 @@ function InvoiceCard({
   accounts,
   categories,
 }: {
-  invoice: InvoiceTotals;
+  invoice: InvoiceWithHistory;
   accounts: AccountOption[];
   categories: CategoryOption[];
 }) {
@@ -134,6 +139,7 @@ function InvoiceCard({
                   : "—"}
               </p>
               <StatusBadge status={invoice.status} />
+              {isPaid && invoice.paymentIsHistorical && <HistoricalBadge />}
             </div>
             <p className="text-xs text-muted-foreground">
               {invoice.closing_date
@@ -220,7 +226,7 @@ export function InvoiceTimeline({
   accounts,
   categories,
 }: {
-  invoices: InvoiceTotals[];
+  invoices: InvoiceWithHistory[];
   accounts: AccountOption[];
   categories: CategoryOption[];
 }) {

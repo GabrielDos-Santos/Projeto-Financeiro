@@ -28,6 +28,8 @@ import {
 } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { HistoricalBadge } from "@/components/shared/historical-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +49,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DomainIcon } from "@/components/shared/domain-icon";
 import { MoneyDisplay } from "@/components/shared/money-display";
 
-function entryTarget(entry: Entry) {
+export function entryTarget(entry: Entry) {
   return entry.transfer_group_id
     ? { transferGroupId: entry.transfer_group_id }
     : { transactionId: entry.transaction_id! };
@@ -89,6 +91,8 @@ const EntryRow = React.memo(function EntryRow({
   accountsById,
   categoriesById,
   cardsById,
+  selected,
+  onToggleSelect,
   onEdit,
   onDuplicate,
 }: {
@@ -96,6 +100,8 @@ const EntryRow = React.memo(function EntryRow({
   accountsById: Map<string, AccountOption>;
   categoriesById: Map<string, CategoryOption>;
   cardsById: Map<string, CardOption>;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
 }) {
@@ -153,7 +159,14 @@ const EntryRow = React.memo(function EntryRow({
   }
 
   return (
-    <TableRow className={cn(cancelled && "opacity-50")}>
+    <TableRow className={cn(cancelled && "opacity-50")} data-state={selected ? "selected" : undefined}>
+      <TableCell className="w-10">
+        <Checkbox
+          checked={selected}
+          onCheckedChange={() => onToggleSelect(entry.id!)}
+          aria-label={`Selecionar ${entry.description}`}
+        />
+      </TableCell>
       <TableCell className="text-muted-foreground">
         {entry.date ? formatDateBR(entry.date) : "—"}
       </TableCell>
@@ -202,7 +215,10 @@ const EntryRow = React.memo(function EntryRow({
         )}
       </TableCell>
       <TableCell>
-        <StatusBadge status={entry.status} />
+        <div className="flex flex-wrap items-center gap-1">
+          <StatusBadge status={entry.status} />
+          {entry.affects_balance === false && <HistoricalBadge />}
+        </div>
       </TableCell>
       <TableCell className="text-right">
         <MoneyDisplay
@@ -311,6 +327,9 @@ export function TransactionsTable({
   accounts,
   categories,
   cards,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
   onEdit,
   onDuplicate,
 }: {
@@ -318,6 +337,9 @@ export function TransactionsTable({
   accounts: AccountOption[];
   categories: CategoryOption[];
   cards: CardOption[];
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: (checked: boolean) => void;
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
 }) {
@@ -334,10 +356,21 @@ export function TransactionsTable({
     [cards],
   );
 
+  const allSelected =
+    entries.length > 0 && entries.every((e) => selectedIds.has(e.id!));
+  const someSelected = entries.some((e) => selectedIds.has(e.id!));
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10">
+            <Checkbox
+              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              onCheckedChange={(checked) => onToggleSelectAll(Boolean(checked))}
+              aria-label="Selecionar todos os lançamentos desta página"
+            />
+          </TableHead>
           <TableHead>Data</TableHead>
           <TableHead>Descrição</TableHead>
           <TableHead>Categoria</TableHead>
@@ -355,6 +388,8 @@ export function TransactionsTable({
             accountsById={accountsById}
             categoriesById={categoriesById}
             cardsById={cardsById}
+            selected={selectedIds.has(entry.id!)}
+            onToggleSelect={onToggleSelect}
             onEdit={onEdit}
             onDuplicate={onDuplicate}
           />

@@ -1,27 +1,21 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Upload } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
-import {
-  DEFAULT_ENTRIES_PAGE_SIZE,
-  fetchEntriesPage,
-} from "@/features/transactions/queries";
-import { TransactionsView } from "@/features/transactions/components/transactions-view";
+import { getRecentImportBatches } from "@/features/import/queries";
+import { ImportHub } from "@/features/import/components/import-hub";
 import type {
   AccountOption,
   CardOption,
   CategoryOption,
 } from "@/features/transactions/types";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 
-export const metadata: Metadata = { title: "Transações" };
+export const metadata: Metadata = { title: "Importar dados" };
 
-export default async function TransacoesPage() {
+export default async function ImportarPage() {
   const supabase = await createClient();
 
-  const [accountsResult, categoriesResult, cardsResult, firstPage] =
+  const [accountsResult, categoriesResult, cardsResult, recentBatches] =
     await Promise.all([
       supabase
         .from("accounts")
@@ -38,7 +32,7 @@ export default async function TransacoesPage() {
         .select("id, name, closing_day, due_day")
         .eq("is_archived", false)
         .order("name"),
-      fetchEntriesPage(supabase, {}, 1, DEFAULT_ENTRIES_PAGE_SIZE),
+      getRecentImportBatches(),
     ]);
 
   const accounts: AccountOption[] = accountsResult.data ?? [];
@@ -53,20 +47,14 @@ export default async function TransacoesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Transações"
-        description="Receitas, despesas, cartão e transferências — pagos movem o saldo; pendentes ficam previstos."
-      >
-        <Button variant="outline" asChild>
-          <Link href="/transacoes/importar">
-            <Upload /> Importar
-          </Link>
-        </Button>
-      </PageHeader>
-      <TransactionsView
+        title="Importar dados"
+        description="Traga seu histórico financeiro para o app sem bagunçar o saldo atual."
+      />
+      <ImportHub
         accounts={accounts}
-        categories={categories}
         cards={cards}
-        initialFirstPage={firstPage}
+        categories={categories}
+        recentBatches={recentBatches}
       />
     </div>
   );

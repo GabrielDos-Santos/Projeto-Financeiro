@@ -20,6 +20,11 @@ const baseFields = {
   date: dateOnlySchema,
   status: z.enum(["paid", "pending"], "Status inválido"),
   notes: z.string().trim().max(500, "Máximo de 500 caracteres").optional(),
+  // Fase 17 — onboarding com histórico (decisão 56): sem .default() de
+  // propósito — mesma armadilha das decisões 37/43/52 (input/output
+  // divergentes quebram o Control<T> genérico do RHF). Todo defaultValues
+  // do formulário já fornece `true` explicitamente.
+  affectsBalance: z.boolean(),
 };
 
 /** Receita ou despesa em conta (compra em cartão entra na Fase 6). */
@@ -93,6 +98,75 @@ export const cardInstallmentPurchaseSchema = z
     path: ["amountCents"],
   });
 
+/**
+ * Reconstrução de compra parcelada em andamento (Fase 17, decisão 62 —
+ * "entrada c" do hub de import): mãe + parcelas 1..paidCount já pagas
+ * (histórico, não afetam saldo) e paidCount+1..N futuras (normais).
+ */
+export const installmentBackfillAccountSchema = z
+  .object({
+    description: baseFields.description,
+    amountCents: baseFields.amountCents, // valor TOTAL
+    installmentsTotal: z
+      .number("Informe as parcelas")
+      .int("Parcelas inválidas")
+      .min(2, "Mínimo de 2 parcelas")
+      .max(120, "Máximo de 120 parcelas"),
+    date: dateOnlySchema, // data da compra original
+    firstDueDate: dateOnlySchema, // vencimento da 1ª parcela (âncora)
+    paidCount: z
+      .number("Informe quantas parcelas já foram pagas")
+      .int("Valor inválido")
+      .min(0, "Não pode ser negativo"),
+    accountId: z.uuid("Escolha a conta"),
+    categoryId: z.uuid("Escolha a categoria"),
+    notes: baseFields.notes,
+  })
+  .refine((data) => data.amountCents >= data.installmentsTotal, {
+    message: "Valor total muito baixo para esse número de parcelas",
+    path: ["amountCents"],
+  })
+  .refine((data) => data.paidCount <= data.installmentsTotal, {
+    message: "Não pode ser maior que o total de parcelas",
+    path: ["paidCount"],
+  });
+
+/** Mesma reconstrução, no cartão — cada parcela cai na fatura do seu mês;
+ * as faturas passadas tocadas (1..paidCount) são fechadas como pagas. */
+export const installmentBackfillCardSchema = z
+  .object({
+    description: baseFields.description,
+    amountCents: baseFields.amountCents,
+    installmentsTotal: z
+      .number("Informe as parcelas")
+      .int("Parcelas inválidas")
+      .min(2, "Mínimo de 2 parcelas")
+      .max(120, "Máximo de 120 parcelas"),
+    date: dateOnlySchema,
+    paidCount: z
+      .number("Informe quantas parcelas já foram pagas")
+      .int("Valor inválido")
+      .min(0, "Não pode ser negativo"),
+    creditCardId: z.uuid("Escolha o cartão"),
+    categoryId: z.uuid("Escolha a categoria"),
+    // Só obrigatória quando paidCount > 0 (refine abaixo) — conta usada para
+    // fechar as faturas passadas como pagas (histórico).
+    settlementAccountId: z.uuid("Conta inválida").optional(),
+    notes: baseFields.notes,
+  })
+  .refine((data) => data.amountCents >= data.installmentsTotal, {
+    message: "Valor total muito baixo para esse número de parcelas",
+    path: ["amountCents"],
+  })
+  .refine((data) => data.paidCount <= data.installmentsTotal, {
+    message: "Não pode ser maior que o total de parcelas",
+    path: ["paidCount"],
+  })
+  .refine((data) => data.paidCount === 0 || Boolean(data.settlementAccountId), {
+    message: "Escolha a conta usada para pagar as faturas passadas",
+    path: ["settlementAccountId"],
+  });
+
 export type EntryFormInput = z.infer<typeof entryFormSchema>;
 export type TransferFormInput = z.infer<typeof transferFormSchema>;
 export type InstallmentPurchaseInput = z.infer<
@@ -101,6 +175,12 @@ export type InstallmentPurchaseInput = z.infer<
 export type CardPurchaseInput = z.infer<typeof cardPurchaseSchema>;
 export type CardInstallmentPurchaseInput = z.infer<
   typeof cardInstallmentPurchaseSchema
+>;
+export type InstallmentBackfillAccountInput = z.infer<
+  typeof installmentBackfillAccountSchema
+>;
+export type InstallmentBackfillCardInput = z.infer<
+  typeof installmentBackfillCardSchema
 >;
 
 export const installmentIdSchema = z.uuid("Parcela inválida");

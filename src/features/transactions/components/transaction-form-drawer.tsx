@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, History, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -65,6 +65,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -80,6 +86,54 @@ function showBudgetAlertToast(alert: BudgetAlert | null | undefined) {
   if (!alert) return;
   toast.warning(
     `Orçamento de ${alert.categoryName} atingiu ${alert.usagePct}% do teto.`,
+  );
+}
+
+/**
+ * Seção "Avançado" com o checkbox de lançamento histórico (Fase 17, decisão
+ * 56). O CAMPO do formulário é `affectsBalance` (mesmo nome/semântica do
+ * banco — fonte única entre client e Server Action), mas a CAIXA exibida é a
+ * inversa ("Lançamento histórico") — checked = affectsBalance=false. Default
+ * fechado e desmarcado: não atrapalha o uso do dia a dia.
+ */
+function AdvancedHistoricalField<T extends { affectsBalance: boolean }>({
+  control,
+}: {
+  control: Control<T>;
+}) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="text-muted-foreground flex items-center gap-1 text-xs font-medium hover:underline">
+        <ChevronDown className="size-3.5" aria-hidden />
+        Avançado
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">
+        <FormField
+          control={control}
+          name={"affectsBalance" as never}
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start gap-2">
+              <FormControl>
+                <Checkbox
+                  checked={!field.value}
+                  onCheckedChange={(checked) => field.onChange(!checked)}
+                />
+              </FormControl>
+              <div className="space-y-0.5 leading-none">
+                <FormLabel className="flex items-center gap-1.5 font-normal">
+                  <History className="size-3.5" aria-hidden />
+                  Lançamento histórico
+                </FormLabel>
+                <p className="text-muted-foreground text-xs">
+                  Não afeta o saldo atual — use para dinheiro que já estava
+                  refletido no saldo inicial da conta.
+                </p>
+              </div>
+            </FormItem>
+          )}
+        />
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -230,6 +284,7 @@ function EntryForm({
           notes: entry.notes ?? "",
           accountId: entry.account_id ?? "",
           categoryId: entry.category_id ?? "",
+          affectsBalance: duplicate ? true : (entry.affects_balance ?? true),
         }
       : {
           type,
@@ -240,6 +295,7 @@ function EntryForm({
           notes: "",
           accountId: accounts[0]?.id ?? "",
           categoryId: "",
+          affectsBalance: true,
         },
   });
 
@@ -491,6 +547,9 @@ function EntryForm({
             </FormItem>
           )}
         />
+        {!isInstallmentPurchase && (
+          <AdvancedHistoricalField control={form.control} />
+        )}
         <Button type="submit" disabled={isPending}>
           {isPending ? <Loader2 className="animate-spin" /> : null}
           {isInstallmentPurchase
@@ -853,6 +912,7 @@ function TransferFormFields({
           notes: entry.notes ?? "",
           fromAccountId: pair?.fromAccountId ?? "",
           toAccountId: pair?.toAccountId ?? "",
+          affectsBalance: duplicate ? true : (entry.affects_balance ?? true),
         }
       : {
           description: "Transferência",
@@ -862,6 +922,7 @@ function TransferFormFields({
           notes: "",
           fromAccountId: accounts[0]?.id ?? "",
           toAccountId: "",
+          affectsBalance: true,
         },
   });
 
@@ -1010,6 +1071,7 @@ function TransferFormFields({
             </FormItem>
           )}
         />
+        <AdvancedHistoricalField control={form.control} />
         <Button type="submit" disabled={isPending}>
           {isPending ? <Loader2 className="animate-spin" /> : null}
           {isEditing ? "Salvar" : "Criar transferência"}

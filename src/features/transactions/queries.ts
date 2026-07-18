@@ -7,9 +7,17 @@ import type { Entry } from "./types";
  * Fetcher isomórfico da lista (recebe o client do contexto): o RSC de
  * /transacoes entrega a primeira página e o TanStack Query pagina o resto
  * com o client de browser (D8). Fonte: view `v_entries` (camada canônica).
+ *
+ * Paginação por OFFSET (`.range()` + `count: "exact"`), não mais keyset: o
+ * usuário pediu página numerada com limite configurável (25/50/75/100), o
+ * que exige saber o total de páginas — algo que keyset não dá de graça.
+ * Volume de dados de um único usuário é pequeno o bastante para offset não
+ * ser um problema de performance real aqui.
  */
 
-export const ENTRIES_PAGE_SIZE = 30;
+export const ENTRIES_PAGE_SIZE_OPTIONS = [25, 50, 75, 100] as const;
+export type EntriesPageSize = (typeof ENTRIES_PAGE_SIZE_OPTIONS)[number];
+export const DEFAULT_ENTRIES_PAGE_SIZE: EntriesPageSize = 25;
 
 export type EntryFilters = {
   search?: string;
@@ -21,25 +29,22 @@ export type EntryFilters = {
   to?: string;
 };
 
-/** Keyset por (date desc, id desc) — estável e O(1), sem offset (§10). */
-export type EntriesCursor = { date: string; id: string };
-
 export type EntriesPage = {
   entries: Entry[];
-  nextCursor: EntriesCursor | null;
+  totalCount: number;
 };
 
 export async function fetchEntriesPage(
   supabase: SupabaseClient<Database>,
   filters: EntryFilters,
-  cursor: EntriesCursor | null,
+  page: number,
+  pageSize: EntriesPageSize,
 ): Promise<EntriesPage> {
   let query = supabase
     .from("v_entries")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("date", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(ENTRIES_PAGE_SIZE);
+    .order("id", { ascending: false });
 
   if (filters.type) query = query.eq("type", filters.type);
   if (filters.status) query = query.eq("status", filters.status);
@@ -52,21 +57,15 @@ export async function fetchEntriesPage(
     const term = filters.search.replace(/[%_]/g, "").trim();
     if (term) query = query.ilike("description", `%${term}%`);
   }
-  if (cursor) {
-    query = query.or(
-      `date.lt.${cursor.date},and(date.eq.${cursor.date},id.lt.${cursor.id})`,
-    );
-  }
 
-  const { data, error } = await query;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
   if (error) {
     throw new Error("Falha ao carregar os lançamentos.");
   }
 
-  const last = data.length === ENTRIES_PAGE_SIZE ? data[data.length - 1] : null;
-  return {
-    entries: data,
-    nextCursor:
-      last && last.date && last.id ? { date: last.date, id: last.id } : null,
-  };
+  return { entries: data, totalCount: count ?? 0 };
 }

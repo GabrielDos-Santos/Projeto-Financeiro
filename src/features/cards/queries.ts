@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Entry } from "@/features/transactions/types";
-import type { CardWithLimit, CreditCard, InvoiceTotals } from "./types";
+import type {
+  CardWithLimit,
+  CreditCard,
+  InvoiceWithHistory,
+} from "./types";
 
 /**
  * Cartões + limite disponível e total da fatura aberta.
@@ -51,10 +55,14 @@ export async function getCard(id: string): Promise<CreditCard | null> {
   return data;
 }
 
-/** Faturas do cartão (com total calculado), da mais recente para a mais antiga. */
+/**
+ * Faturas do cartão (com total calculado), da mais recente para a mais
+ * antiga — com `paymentIsHistorical` derivado (decisão 57): join local com
+ * `transactions.affects_balance` pelas `payment_transaction_id` da página.
+ */
 export async function getCardInvoices(
   cardId: string,
-): Promise<InvoiceTotals[]> {
+): Promise<InvoiceWithHistory[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("v_invoice_totals")
@@ -62,7 +70,28 @@ export async function getCardInvoices(
     .eq("credit_card_id", cardId)
     .order("reference_month", { ascending: false });
   if (error) throw new Error("Falha ao carregar as faturas.");
-  return data;
+
+  const paymentIds = data
+    .map((invoice) => invoice.payment_transaction_id)
+    .filter((id): id is string => id != null);
+
+  const historicalIds = new Set<string>();
+  if (paymentIds.length > 0) {
+    const { data: payments } = await supabase
+      .from("transactions")
+      .select("id, affects_balance")
+      .in("id", paymentIds);
+    for (const payment of payments ?? []) {
+      if (!payment.affects_balance) historicalIds.add(payment.id);
+    }
+  }
+
+  return data.map((invoice) => ({
+    ...invoice,
+    paymentIsHistorical: invoice.payment_transaction_id
+      ? historicalIds.has(invoice.payment_transaction_id)
+      : false,
+  }));
 }
 
 /** Itens de uma fatura (compras à vista + parcelas), da view canônica. */

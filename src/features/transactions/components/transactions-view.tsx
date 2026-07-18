@@ -2,10 +2,19 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeftRight, Loader2, Plus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { useDebounce } from "@/hooks/use-debounce";
-import type { EntriesPage, EntryFilters } from "../queries";
+import { deleteEntries } from "../actions";
+import {
+  DEFAULT_ENTRIES_PAGE_SIZE,
+  ENTRIES_PAGE_SIZE_OPTIONS,
+  type EntriesPage,
+  type EntriesPageSize,
+  type EntryFilters,
+} from "../queries";
 import { useEntries } from "../use-entries";
 import type {
   AccountOption,
@@ -15,10 +24,18 @@ import type {
 } from "../types";
 import { TransactionFilters } from "./transaction-filters";
 import { TransactionFormDrawer } from "./transaction-form-drawer";
-import { TransactionsTable } from "./transactions-table";
+import { entryTarget, TransactionsTable } from "./transactions-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 
 type DrawerState = {
@@ -45,6 +62,22 @@ export function TransactionsView({
     [filters, debouncedSearch],
   );
 
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState<EntriesPageSize>(
+    DEFAULT_ENTRIES_PAGE_SIZE,
+  );
+  // Filtro ou tamanho de página mudou: a página 1 pode não existir mais como
+  // "página atual" fazia sentido — sempre volta ao início.
+  React.useEffect(() => {
+    setPage(1);
+  }, [effectiveFilters, pageSize]);
+
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const [bulkDeleteOpen, setBulkDeleteOpen] = React.useState(false);
+  const [isBulkDeleting, startBulkDelete] = React.useTransition();
+
   const [drawer, setDrawer] = React.useState<DrawerState>({ open: false });
 
   // Callbacks estáveis: pré-requisito do React.memo nas linhas da tabela
@@ -67,28 +100,57 @@ export function TransactionsView({
     }
   }, [searchParams, router]);
 
-  const query = useEntries(effectiveFilters, initialFirstPage);
-  const entries = React.useMemo(
-    () => query.data?.pages.flatMap((page) => page.entries) ?? [],
-    [query.data],
+  const query = useEntries(effectiveFilters, page, pageSize, initialFirstPage);
+  const entries = React.useMemo(() => query.data?.entries ?? [], [query.data]);
+  const totalCount = query.data?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  // Seleção não sobrevive à troca de página/filtro/tamanho (evita apagar por
+  // engano algo que não está mais visível na tela).
+  React.useEffect(() => {
+    setSelectedIds(new Set());
+  }, [effectiveFilters, page, pageSize]);
+
+  const handleToggleSelect = React.useCallback((id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const handleToggleSelectAll = React.useCallback(
+    (checked: boolean) => {
+      setSelectedIds(checked ? new Set(entries.map((e) => e.id!)) : new Set());
+    },
+    [entries],
   );
 
-  // Sentinela de infinite scroll: carrega a próxima página ao entrar na tela.
-  const sentinelRef = React.useRef<HTMLDivElement>(null);
-  const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
-  React.useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasNextPage) return;
-    const observer = new IntersectionObserver((observed) => {
-      if (observed[0]?.isIntersecting && !isFetchingNextPage) {
-        fetchNextPage();
+  const queryClient = useQueryClient();
+  function handleBulkDelete() {
+    const targets = entries
+      .filter((entry) => selectedIds.has(entry.id!))
+      .map(entryTarget);
+    startBulkDelete(async () => {
+      const result = await deleteEntries(targets);
+      if (!result.ok) {
+        toast.error(result.error);
+        setBulkDeleteOpen(false);
+        return;
       }
+      toast.success(
+        result.data.deletedCount === 1
+          ? "1 lançamento excluído."
+          : `${result.data.deletedCount} lançamentos excluídos.`,
+      );
+      setSelectedIds(new Set());
+      setBulkDeleteOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["entries"] });
     });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage, entries.length]);
+  }
 
   const hasFilters = Object.values(effectiveFilters).some(Boolean);
+  const selectedCount = selectedIds.size;
 
   return (
     <div className="flex flex-col gap-4">
@@ -105,6 +167,32 @@ export function TransactionsView({
           <Plus /> Novo lançamento
         </Button>
       </div>
+
+      {selectedCount > 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-md border bg-secondary/50 px-3 py-2 text-sm">
+          <span>
+            {selectedCount === 1
+              ? "1 lançamento selecionado"
+              : `${selectedCount} lançamentos selecionados`}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X /> Limpar seleção
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 /> Excluir selecionados
+            </Button>
+          </div>
+        </div>
+      )}
 
       {query.isPending ? (
         <Card>
@@ -138,29 +226,74 @@ export function TransactionsView({
               accounts={accounts}
               categories={categories}
               cards={cards}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onToggleSelectAll={handleToggleSelectAll}
               onEdit={handleEdit}
               onDuplicate={handleDuplicate}
             />
-            <div ref={sentinelRef} aria-hidden />
-            {isFetchingNextPage && (
-              <div className="flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" /> Carregando mais…
-              </div>
-            )}
-            {hasNextPage && !isFetchingNextPage && (
-              <div className="flex justify-center py-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => fetchNextPage()}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-2 pt-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Por página</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => setPageSize(Number(v) as EntriesPageSize)}
                 >
-                  Carregar mais
+                  <SelectTrigger size="sm" className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENTRIES_PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span>
+                  {totalCount === 0
+                    ? "0 lançamentos"
+                    : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} de ${totalCount}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Página anterior"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft />
+                </Button>
+                <span className="w-24 text-center text-sm text-muted-foreground">
+                  Página {page} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Próxima página"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  <ChevronRight />
                 </Button>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        title="Excluir lançamentos selecionados?"
+        description={`${selectedCount === 1 ? "1 lançamento será excluído" : `${selectedCount} lançamentos serão excluídos`} permanentemente. Transferências e compras parceladas selecionadas são removidas por inteiro (todas as pernas/parcelas).`}
+        confirmLabel="Excluir"
+        destructive
+        isPending={isBulkDeleting}
+        onConfirm={handleBulkDelete}
+      />
 
       <TransactionFormDrawer
         key={`${drawer.entry?.id ?? "new"}-${drawer.duplicate ?? false}`}

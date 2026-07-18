@@ -1,37 +1,41 @@
 "use client";
 
 import * as React from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchEntriesPage,
-  type EntriesCursor,
   type EntriesPage,
+  type EntriesPageSize,
   type EntryFilters,
 } from "./queries";
 
 const DEFAULT_FILTERS: EntryFilters = {};
 
 /**
- * Infinite scroll da lista de transações. Para o estado sem filtros, a
- * primeira página vem do RSC (`initialFirstPage`) — sem waterfall no client.
+ * Página atual da lista de transações. Para o estado padrão (sem filtros,
+ * página 1, tamanho padrão) a primeira página vem do RSC (`initialFirstPage`)
+ * — sem waterfall no client. `keepPreviousData` evita o flash de loading ao
+ * trocar de página/tamanho (mantém a página anterior visível até a nova
+ * chegar).
  */
 export function useEntries(
   filters: EntryFilters,
+  page: number,
+  pageSize: EntriesPageSize,
   initialFirstPage?: EntriesPage,
 ) {
   const supabase = React.useMemo(() => createClient(), []);
   const isDefault = JSON.stringify(filters) === JSON.stringify(DEFAULT_FILTERS);
 
-  return useInfiniteQuery({
-    queryKey: ["entries", filters],
-    queryFn: ({ pageParam }) => fetchEntriesPage(supabase, filters, pageParam),
-    initialPageParam: null as EntriesCursor | null,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  return useQuery({
+    queryKey: ["entries", filters, page, pageSize],
+    queryFn: () => fetchEntriesPage(supabase, filters, page, pageSize),
+    placeholderData: keepPreviousData,
     initialData:
-      isDefault && initialFirstPage
-        ? { pages: [initialFirstPage], pageParams: [null] }
+      isDefault && page === 1 && initialFirstPage
+        ? initialFirstPage
         : undefined,
   });
 }

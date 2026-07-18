@@ -200,7 +200,9 @@ export async function payInvoice(input: unknown): Promise<ActionResult<null>> {
   const description = `Pagamento fatura ${card?.name ?? "cartão"} · ${monthLabel}`;
   const paidAt = new Date().toISOString();
 
-  // 1) Despesa na conta escolhida (caixa).
+  // 1) Despesa na conta escolhida (caixa). Fork B2 (decisão 57): fatura
+  // histórica vira essa MESMA transação, só com affects_balance = false —
+  // payment_transaction_id continua sempre preenchido em fatura paga.
   const { data: payment, error: paymentError } = await supabase
     .from("transactions")
     .insert({
@@ -213,6 +215,7 @@ export async function payInvoice(input: unknown): Promise<ActionResult<null>> {
       paid_at: paidAt,
       account_id: parsed.data.accountId,
       category_id: parsed.data.categoryId,
+      affects_balance: parsed.data.affectsBalance,
     })
     .select("id")
     .single();

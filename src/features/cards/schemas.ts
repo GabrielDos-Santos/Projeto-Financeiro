@@ -38,6 +38,10 @@ export const payInvoiceSchema = z.object({
   accountId: z.uuid("Escolha a conta de pagamento"),
   categoryId: z.uuid("Escolha a categoria"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data do pagamento"),
+  // Fase 17 (decisão 57) — pagamento retroativo de fatura antiga: sem
+  // .default() de propósito (armadilha das decisões 37/43/52 com o RHF);
+  // o form sempre fornece `true` em defaultValues.
+  affectsBalance: z.boolean(),
 });
 
 export type PayInvoiceInput = z.infer<typeof payInvoiceSchema>;

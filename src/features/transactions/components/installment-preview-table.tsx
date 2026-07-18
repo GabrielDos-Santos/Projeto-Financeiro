@@ -2,17 +2,22 @@
 
 import { formatDateBR } from "@/lib/dates";
 import { buildInstallmentPlan } from "@/services/installments";
+import { Badge } from "@/components/ui/badge";
 import { MoneyDisplay } from "@/components/shared/money-display";
 
-/** Preview do plano de parcelas antes de salvar (soma = total exato, D1). */
+/** Preview do plano de parcelas antes de salvar (soma = total exato, D1).
+ * `paidCount` (Fase 17, reconstrução de parcelamento em andamento) marca as
+ * primeiras N parcelas como já pagas/históricas — 0 preserva o preview normal. */
 export function InstallmentPreviewTable({
   totalCents,
   count,
   firstDueDate,
+  paidCount = 0,
 }: {
   totalCents: number;
   count: number;
   firstDueDate: string;
+  paidCount?: number;
 }) {
   if (count < 2 || totalCents < count || !firstDueDate) return null;
 
@@ -33,7 +38,14 @@ export function InstallmentPreviewTable({
             {plan.map((item) => (
               <tr key={item.number} className="border-b last:border-0">
                 <td className="px-3 py-1.5 text-muted-foreground">
-                  {item.number}/{count}
+                  <span className="flex items-center gap-1.5">
+                    {item.number}/{count}
+                    {item.number <= paidCount && (
+                      <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                        Paga
+                      </Badge>
+                    )}
+                  </span>
                 </td>
                 <td className="px-3 py-1.5">{formatDateBR(item.dueDate)}</td>
                 <td className="px-3 py-1.5 text-right">

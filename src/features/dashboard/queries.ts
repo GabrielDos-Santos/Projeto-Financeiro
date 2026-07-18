@@ -44,6 +44,7 @@ export async function getSummary(): Promise<DashboardSummary> {
         .from("v_entries")
         .select("type, amount_cents")
         .eq("status", "pending")
+        .eq("affects_balance", true) // Fase 17 (decisão 56): histórico não entra no previsto
         .not("account_id", "is", null)
         .gte("date", start)
         .lte("date", end),
