@@ -657,6 +657,16 @@ export async function createAttachment(
     return fail("Arquivo inválido.");
   }
 
+  // Upload é a action de escrita mais pesada (§9) — janela deslizante 60/hora.
+  const { data: allowed } = await supabase.rpc("check_rate_limit", {
+    p_key: `${user.id}:upload`,
+    p_max_hits: 60,
+    p_window: "1 hour",
+  });
+  if (allowed === false) {
+    return fail("Muitos uploads em pouco tempo. Aguarde e tente de novo.");
+  }
+
   const { error } = await supabase.from("attachments").insert({
     user_id: user.id,
     transaction_id: parsed.data.transactionId,

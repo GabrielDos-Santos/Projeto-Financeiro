@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Loader2, LogOut, Settings } from "lucide-react";
 
 import { signOut } from "@/features/auth/actions";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ import {
 
 export type SessionUser = {
   name: string;
+  avatarUrl?: string | null;
   email: string;
 };
 
@@ -41,6 +42,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
           aria-label="Menu do usuário"
         >
           <Avatar>
+            <AvatarImage src={user.avatarUrl ?? undefined} alt="" />
             <AvatarFallback className="text-xs font-medium">
               {initials(user.name)}
             </AvatarFallback>

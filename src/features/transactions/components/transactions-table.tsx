@@ -81,7 +81,10 @@ function StatusBadge({ status }: { status: Entry["status"] }) {
   );
 }
 
-function EntryRow({
+// React.memo (§10): com infinite scroll a lista cresce — sem memo, cada nova
+// página re-renderizaria TODAS as linhas anteriores. Exige callbacks estáveis
+// (useCallback) e Maps memoizados nos props — garantidos pela TransactionsView.
+const EntryRow = React.memo(function EntryRow({
   entry,
   accountsById,
   categoriesById,
@@ -301,7 +304,7 @@ function EntryRow({
       </TableCell>
     </TableRow>
   );
-}
+});
 
 export function TransactionsTable({
   entries,

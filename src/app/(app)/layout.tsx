@@ -27,11 +27,17 @@ export default async function AppLayout({
     "Usuário";
   const email = user.email ?? "";
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", user.id)
+    .maybeSingle();
+
   return (
     <div className="flex min-h-svh">
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar user={{ name, email }} />
+        <Topbar user={{ name, email, avatarUrl: profile?.avatar_url }} />
         <main className="flex-1 p-4 pb-24 md:p-6 md:pb-6">{children}</main>
       </div>
       <MobileNav />

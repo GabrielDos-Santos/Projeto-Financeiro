@@ -47,6 +47,15 @@ export function TransactionsView({
 
   const [drawer, setDrawer] = React.useState<DrawerState>({ open: false });
 
+  // Callbacks estáveis: pré-requisito do React.memo nas linhas da tabela
+  // (inline arrows quebrariam o memo a cada render — decisão 53).
+  const handleEdit = React.useCallback((entry: Entry) => {
+    setDrawer({ open: true, entry });
+  }, []);
+  const handleDuplicate = React.useCallback((entry: Entry) => {
+    setDrawer({ open: true, entry, duplicate: true });
+  }, []);
+
   // Vindo da Command Palette ("Novo lançamento" → /transacoes?novo=1):
   // abre o drawer já na carga e limpa a query string (não fica no histórico).
   const router = useRouter();
@@ -129,10 +138,8 @@ export function TransactionsView({
               accounts={accounts}
               categories={categories}
               cards={cards}
-              onEdit={(entry) => setDrawer({ open: true, entry })}
-              onDuplicate={(entry) =>
-                setDrawer({ open: true, entry, duplicate: true })
-              }
+              onEdit={handleEdit}
+              onDuplicate={handleDuplicate}
             />
             <div ref={sentinelRef} aria-hidden />
             {isFetchingNextPage && (
