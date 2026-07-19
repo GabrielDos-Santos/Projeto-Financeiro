@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 
@@ -15,6 +15,26 @@ export const metadata: Metadata = {
   },
   description:
     "Controle completo da sua vida financeira: contas, cartões, orçamentos, metas e relatórios.",
+  // iOS não lê o manifest.ts pra virar app instalável — precisa desta tag
+  // própria (Fase 15, PWA). O prompt de instalação (beforeinstallprompt)
+  // não existe no Safari; a instrução fica em Configurações.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Finanças",
+  },
+  icons: {
+    apple: "/icons/icon-180.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#09090b",
+  // "cover" + os insets de safe-area (Fase 1, bottom bar) é o que evita a
+  // barra de navegação mobile sobrepor o conteúdo em telas com notch/gesto.
+  viewportFit: "cover",
+  width: "device-width",
+  initialScale: 1,
 };
 
 // Dark é o padrão do produto (settings.theme = 'dark'); o script inline

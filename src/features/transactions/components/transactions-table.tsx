@@ -95,30 +95,18 @@ function StatusBadge({ status }: { status: Entry["status"] }) {
   );
 }
 
-// React.memo (§10): com infinite scroll a lista cresce — sem memo, cada nova
-// página re-renderizaria TODAS as linhas anteriores. Exige callbacks estáveis
-// (useCallback) e Maps memoizados nos props — garantidos pela TransactionsView.
-const EntryRow = React.memo(function EntryRow({
-  entry,
-  accountsById,
-  categoriesById,
-  categories,
-  cardsById,
-  selected,
-  onToggleSelect,
-  onEdit,
-  onDuplicate,
-}: {
-  entry: Entry;
-  accountsById: Map<string, AccountOption>;
-  categoriesById: Map<string, CategoryOption>;
-  categories: CategoryOption[];
-  cardsById: Map<string, CardOption>;
-  selected: boolean;
-  onToggleSelect: (id: string) => void;
-  onEdit: (entry: Entry) => void;
-  onDuplicate: (entry: Entry) => void;
-}) {
+/**
+ * Estado e ações compartilhados entre `EntryRow` (tabela, desktop) e
+ * `EntryCard` (lista em cards, mobile — Fase 15) — mesma lógica de negócio,
+ * dois layouts. Extraído para não duplicar as Server Actions/transições em
+ * dois componentes.
+ */
+function useEntryRowState(
+  entry: Entry,
+  accountsById: Map<string, AccountOption>,
+  categoriesById: Map<string, CategoryOption>,
+  cardsById: Map<string, CardOption>,
+) {
   const queryClient = useQueryClient();
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
@@ -186,6 +174,348 @@ const EntryRow = React.memo(function EntryRow({
     });
   }
 
+  return {
+    deleteOpen,
+    setDeleteOpen,
+    isPending,
+    isTransfer,
+    isInstallment,
+    isCard,
+    category,
+    account,
+    card,
+    cancelled,
+    locked,
+    changeStatus,
+    handleDelete,
+    handleCategoryChange,
+  };
+}
+
+/** Menu "..." de ações — idêntico em `EntryRow` e `EntryCard`. */
+function EntryActionsMenu({
+  entry,
+  state,
+  onEdit,
+  onDuplicate,
+  triggerClassName,
+}: {
+  entry: Entry;
+  state: ReturnType<typeof useEntryRowState>;
+  onEdit: (entry: Entry) => void;
+  onDuplicate: (entry: Entry) => void;
+  triggerClassName?: string;
+}) {
+  const {
+    isPending,
+    isTransfer,
+    isInstallment,
+    isCard,
+    cancelled,
+    locked,
+    changeStatus,
+    handleDelete,
+    deleteOpen,
+    setDeleteOpen,
+  } = state;
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "size-11 text-muted-foreground sm:size-8",
+              triggerClassName,
+            )}
+            aria-label={`Ações de ${entry.description}`}
+          >
+            <MoreVertical />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {!locked && (
+            <>
+              <DropdownMenuItem onSelect={() => onEdit(entry)}>
+                <Pencil /> Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onDuplicate(entry)}>
+                <Copy /> Duplicar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          {/* Status de compra no cartão é definido pelo pagamento da fatura. */}
+          {!isCard && entry.status !== "paid" && (
+            <DropdownMenuItem
+              onSelect={() => changeStatus("paid")}
+              disabled={isPending}
+            >
+              <CheckCircle2 /> Marcar como pago
+            </DropdownMenuItem>
+          )}
+          {!isCard && entry.status !== "pending" && (
+            <DropdownMenuItem
+              onSelect={() => changeStatus("pending")}
+              disabled={isPending}
+            >
+              {cancelled ? <RotateCcw /> : <Clock />}
+              {cancelled
+                ? isInstallment
+                  ? "Reativar parcela"
+                  : "Reativar (pendente)"
+                : isInstallment
+                  ? "Marcar parcela como pendente"
+                  : "Marcar como pendente"}
+            </DropdownMenuItem>
+          )}
+          {!isCard && !cancelled && (
+            <DropdownMenuItem
+              onSelect={() => changeStatus("cancelled")}
+              disabled={isPending}
+            >
+              <Ban /> Cancelar
+            </DropdownMenuItem>
+          )}
+          {!isCard && <DropdownMenuSeparator />}
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => setDeleteOpen(true)}
+          >
+            <Trash2 /> {isInstallment ? "Excluir compra inteira" : "Excluir"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={
+          isInstallment
+            ? "Excluir compra parcelada"
+            : isTransfer
+              ? "Excluir transferência"
+              : "Excluir lançamento"
+        }
+        description={
+          isInstallment
+            ? `A compra "${entry.description}" será excluída POR INTEIRO — todas as parcelas somem, inclusive as já pagas.`
+            : isTransfer
+              ? "As duas pernas da transferência (saída e entrada) serão excluídas de forma permanente."
+              : `"${entry.description}" será excluído de forma permanente.`
+        }
+        confirmLabel="Excluir"
+        destructive
+        isPending={isPending}
+        onConfirm={handleDelete}
+      />
+    </>
+  );
+}
+
+/** Categoria: select inline em item travado (decisão 33/36/71), texto nos demais. */
+function EntryCategoryField({
+  entry,
+  category,
+  categories,
+  locked,
+  isPending,
+  onCategoryChange,
+}: {
+  entry: Entry;
+  category: CategoryOption | undefined;
+  categories: CategoryOption[];
+  locked: boolean;
+  isPending: boolean;
+  onCategoryChange: (categoryId: string) => void;
+}) {
+  if (entry.type === "transfer") {
+    return (
+      <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <ArrowLeftRight className="size-3.5" aria-hidden />
+        Transferência ({entry.transfer_direction === "out" ? "saída" : "entrada"})
+      </span>
+    );
+  }
+  if (locked) {
+    return (
+      <Select
+        value={entry.category_id ?? ""}
+        onValueChange={onCategoryChange}
+        disabled={isPending}
+      >
+        <SelectTrigger
+          size="sm"
+          className="h-7 w-full border-transparent bg-transparent px-2 shadow-none hover:border-input"
+        >
+          <SelectValue placeholder="Escolha" />
+        </SelectTrigger>
+        <SelectContent>
+          {categories
+            .filter((c) => c.type === entry.type)
+            .map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                <DomainIcon name={c.icon} className="size-3.5" />
+                {c.name}
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+  if (category) {
+    return (
+      <span className="flex items-center gap-1.5 text-sm">
+        <span style={{ color: category.color ?? undefined }}>
+          <DomainIcon name={category.icon} className="size-3.5" />
+        </span>
+        {category.name}
+      </span>
+    );
+  }
+  return <span className="text-sm text-muted-foreground">—</span>;
+}
+
+/**
+ * Lista em cards para telas pequenas (Fase 15) — a mesma tabela densa de 8
+ * colunas não cabe em ~375px sem rolagem horizontal, que é exatamente o que
+ * o checklist de responsividade da Fase 15 pede pra evitar.
+ */
+function EntryCard({
+  entry,
+  accountsById,
+  categoriesById,
+  categories,
+  cardsById,
+  selected,
+  onToggleSelect,
+  onEdit,
+  onDuplicate,
+}: {
+  entry: Entry;
+  accountsById: Map<string, AccountOption>;
+  categoriesById: Map<string, CategoryOption>;
+  categories: CategoryOption[];
+  cardsById: Map<string, CardOption>;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
+  onEdit: (entry: Entry) => void;
+  onDuplicate: (entry: Entry) => void;
+}) {
+  const state = useEntryRowState(entry, accountsById, categoriesById, cardsById);
+  const { isPending, cancelled, category, account, card, locked, handleCategoryChange } =
+    state;
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2 rounded-lg border p-3",
+        cancelled && "opacity-50",
+        selected && "border-primary/50 bg-accent/40",
+      )}
+      data-state={selected ? "selected" : undefined}
+    >
+      <Checkbox
+        checked={selected}
+        onCheckedChange={() => onToggleSelect(entry.id!)}
+        aria-label={`Selecionar ${entry.description}`}
+        className="mt-2.5"
+      />
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-start justify-between gap-2">
+          <span
+            className={cn(
+              "text-sm font-medium wrap-break-word",
+              cancelled && "line-through",
+            )}
+          >
+            {entry.description}
+            {entry.installment_number != null && (
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                · parcela {entry.installment_number}
+              </span>
+            )}
+          </span>
+          <MoneyDisplay
+            cents={signedAmountCents(entry)}
+            colorBySign={!cancelled}
+            className={cn(
+              "shrink-0 font-medium",
+              cancelled && "text-muted-foreground line-through",
+            )}
+          />
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span>{entry.date ? formatDateBR(entry.date) : "—"}</span>
+          <span className="flex items-center gap-1.5">
+            {card ? (
+              <>
+                <CreditCard className="size-3.5" aria-hidden />
+                {card.name}
+              </>
+            ) : (
+              (account?.name ?? "—")
+            )}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <EntryCategoryField
+              entry={entry}
+              category={category}
+              categories={categories}
+              locked={locked}
+              isPending={isPending}
+              onCategoryChange={handleCategoryChange}
+            />
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <StatusBadge status={entry.status} />
+            {entry.affects_balance === false && <HistoricalBadge />}
+          </div>
+        </div>
+      </div>
+      <EntryActionsMenu
+        entry={entry}
+        state={state}
+        onEdit={onEdit}
+        onDuplicate={onDuplicate}
+        triggerClassName="-mt-1 -mr-1"
+      />
+    </div>
+  );
+}
+
+// React.memo (§10): com infinite scroll a lista cresce — sem memo, cada nova
+// página re-renderizaria TODAS as linhas anteriores. Exige callbacks estáveis
+// (useCallback) e Maps memoizados nos props — garantidos pela TransactionsView.
+const EntryRow = React.memo(function EntryRow({
+  entry,
+  accountsById,
+  categoriesById,
+  categories,
+  cardsById,
+  selected,
+  onToggleSelect,
+  onEdit,
+  onDuplicate,
+}: {
+  entry: Entry;
+  accountsById: Map<string, AccountOption>;
+  categoriesById: Map<string, CategoryOption>;
+  categories: CategoryOption[];
+  cardsById: Map<string, CardOption>;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
+  onEdit: (entry: Entry) => void;
+  onDuplicate: (entry: Entry) => void;
+}) {
+  const state = useEntryRowState(entry, accountsById, categoriesById, cardsById);
+  const { cancelled, category, account, card, locked, handleCategoryChange, isPending } =
+    state;
+
   return (
     <TableRow
       className={cn(cancelled && "opacity-50")}
@@ -218,48 +548,14 @@ const EntryRow = React.memo(function EntryRow({
         </span>
       </TableCell>
       <TableCell>
-        {isTransfer ? (
-          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <ArrowLeftRight className="size-3.5" aria-hidden />
-            Transferência (
-            {entry.transfer_direction === "out" ? "saída" : "entrada"})
-          </span>
-        ) : locked ? (
-          // Único campo editável em item travado (decisão 33/36): trocar
-          // tipo/conta/cartão violaria "um dono só" ou o vínculo com a
-          // fatura, mas a categoria é segura de liberar.
-          <Select
-            value={entry.category_id ?? ""}
-            onValueChange={handleCategoryChange}
-            disabled={isPending}
-          >
-            <SelectTrigger
-              size="sm"
-              className="h-7 w-full border-transparent bg-transparent px-2 shadow-none hover:border-input"
-            >
-              <SelectValue placeholder="Escolha" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories
-                .filter((c) => c.type === entry.type)
-                .map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <DomainIcon name={c.icon} className="size-3.5" />
-                    {c.name}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        ) : category ? (
-          <span className="flex items-center gap-1.5 text-sm">
-            <span style={{ color: category.color ?? undefined }}>
-              <DomainIcon name={category.icon} className="size-3.5" />
-            </span>
-            {category.name}
-          </span>
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
-        )}
+        <EntryCategoryField
+          entry={entry}
+          category={category}
+          categories={categories}
+          locked={locked}
+          isPending={isPending}
+          onCategoryChange={handleCategoryChange}
+        />
       </TableCell>
       <TableCell className="text-sm text-muted-foreground">
         {card ? (
@@ -288,91 +584,11 @@ const EntryRow = React.memo(function EntryRow({
         />
       </TableCell>
       <TableCell className="w-10">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 text-muted-foreground"
-              aria-label={`Ações de ${entry.description}`}
-            >
-              <MoreVertical />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {!locked && (
-              <>
-                <DropdownMenuItem onSelect={() => onEdit(entry)}>
-                  <Pencil /> Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onDuplicate(entry)}>
-                  <Copy /> Duplicar
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            {/* Status de compra no cartão é definido pelo pagamento da fatura. */}
-            {!isCard && entry.status !== "paid" && (
-              <DropdownMenuItem
-                onSelect={() => changeStatus("paid")}
-                disabled={isPending}
-              >
-                <CheckCircle2 /> Marcar como pago
-              </DropdownMenuItem>
-            )}
-            {!isCard && entry.status !== "pending" && (
-              <DropdownMenuItem
-                onSelect={() => changeStatus("pending")}
-                disabled={isPending}
-              >
-                {cancelled ? <RotateCcw /> : <Clock />}
-                {cancelled
-                  ? isInstallment
-                    ? "Reativar parcela"
-                    : "Reativar (pendente)"
-                  : isInstallment
-                    ? "Marcar parcela como pendente"
-                    : "Marcar como pendente"}
-              </DropdownMenuItem>
-            )}
-            {!isCard && !cancelled && (
-              <DropdownMenuItem
-                onSelect={() => changeStatus("cancelled")}
-                disabled={isPending}
-              >
-                <Ban /> Cancelar
-              </DropdownMenuItem>
-            )}
-            {!isCard && <DropdownMenuSeparator />}
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => setDeleteOpen(true)}
-            >
-              <Trash2 /> {isInstallment ? "Excluir compra inteira" : "Excluir"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <ConfirmDialog
-          open={deleteOpen}
-          onOpenChange={setDeleteOpen}
-          title={
-            isInstallment
-              ? "Excluir compra parcelada"
-              : isTransfer
-                ? "Excluir transferência"
-                : "Excluir lançamento"
-          }
-          description={
-            isInstallment
-              ? `A compra "${entry.description}" será excluída POR INTEIRO — todas as parcelas somem, inclusive as já pagas.`
-              : isTransfer
-                ? "As duas pernas da transferência (saída e entrada) serão excluídas de forma permanente."
-                : `"${entry.description}" será excluído de forma permanente.`
-          }
-          confirmLabel="Excluir"
-          destructive
-          isPending={isPending}
-          onConfirm={handleDelete}
+        <EntryActionsMenu
+          entry={entry}
+          state={state}
+          onEdit={onEdit}
+          onDuplicate={onDuplicate}
         />
       </TableCell>
     </TableRow>
@@ -418,30 +634,61 @@ export function TransactionsTable({
   const someSelected = entries.some((e) => selectedIds.has(e.id!));
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-10">
-            <Checkbox
-              checked={
-                allSelected ? true : someSelected ? "indeterminate" : false
-              }
-              onCheckedChange={(checked) => onToggleSelectAll(Boolean(checked))}
-              aria-label="Selecionar todos os lançamentos desta página"
+    <>
+      {/* ≥ sm: tabela densa de sempre. Abaixo disso os 8 campos por linha
+       * não cabem sem rolagem horizontal — vira lista de cards (Fase 15). */}
+      <Table className="hidden sm:table">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                checked={
+                  allSelected ? true : someSelected ? "indeterminate" : false
+                }
+                onCheckedChange={(checked) =>
+                  onToggleSelectAll(Boolean(checked))
+                }
+                aria-label="Selecionar todos os lançamentos desta página"
+              />
+            </TableHead>
+            <TableHead>Data</TableHead>
+            <TableHead>Descrição</TableHead>
+            <TableHead>Categoria</TableHead>
+            <TableHead>Conta</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Valor</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.map((entry) => (
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              accountsById={accountsById}
+              categoriesById={categoriesById}
+              categories={categories}
+              cardsById={cardsById}
+              selected={selectedIds.has(entry.id!)}
+              onToggleSelect={onToggleSelect}
+              onEdit={onEdit}
+              onDuplicate={onDuplicate}
             />
-          </TableHead>
-          <TableHead>Data</TableHead>
-          <TableHead>Descrição</TableHead>
-          <TableHead>Categoria</TableHead>
-          <TableHead>Conta</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-right">Valor</TableHead>
-          <TableHead />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+          ))}
+        </TableBody>
+      </Table>
+
+      <div className="flex flex-col gap-2 sm:hidden">
+        <label className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+          <Checkbox
+            checked={allSelected ? true : someSelected ? "indeterminate" : false}
+            onCheckedChange={(checked) => onToggleSelectAll(Boolean(checked))}
+            aria-label="Selecionar todos os lançamentos desta página"
+          />
+          Selecionar todos
+        </label>
         {entries.map((entry) => (
-          <EntryRow
+          <EntryCard
             key={entry.id}
             entry={entry}
             accountsById={accountsById}
@@ -454,7 +701,7 @@ export function TransactionsTable({
             onDuplicate={onDuplicate}
           />
         ))}
-      </TableBody>
-    </Table>
+      </div>
+    </>
   );
 }

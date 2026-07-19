@@ -173,7 +173,7 @@ export function ImportHub({
         open={active === "installment"}
         onOpenChange={(open) => setActive(open ? "installment" : null)}
       >
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="overflow-y-auto sm:max-h-[90vh] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Compra parcelada em andamento</DialogTitle>
             <DialogDescription>

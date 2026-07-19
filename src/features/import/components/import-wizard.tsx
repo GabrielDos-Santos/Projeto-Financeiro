@@ -439,16 +439,21 @@ export function ImportWizard({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className={cn(
+          // Sem prefixo `sm:` nestas, o mobile herdaria uma altura própria
+          // que brigaria com o tela-cheia por padrão do DialogContent
+          // (Fase 15, decisão 74) — todo o ajuste de tamanho abaixo só vale
+          // a partir do breakpoint sm; no mobile é sempre tela cheia.
+          "flex flex-col",
           step === "review"
             ? // Revisão tem mais colunas e descrições longas (extrato de
               // Pix traz razão social + banco + agência/conta) — altura FIXA
               // (não max-height) + flex-col deixa a tabela ocupar todo o
               // espaço que sobra, em vez de uma altura fixa arbitrária que
               // deixava linha de menos visível e obrigava a rolar sempre.
-              "flex h-[90vh] flex-col sm:max-w-[90vw]"
+              "sm:h-[90vh] sm:max-w-[90vw]"
             : step === "mapping"
-              ? "max-h-[90vh] overflow-y-auto sm:max-w-3xl"
-              : "max-h-[90vh] max-w-2xl overflow-y-auto",
+              ? "overflow-y-auto sm:max-h-[90vh] sm:max-w-3xl"
+              : "overflow-y-auto sm:max-h-[90vh] sm:max-w-2xl",
         )}
       >
         <DialogHeader className="shrink-0">

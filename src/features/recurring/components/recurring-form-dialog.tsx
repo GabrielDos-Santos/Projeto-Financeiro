@@ -170,7 +170,7 @@ export function RecurringFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="overflow-y-auto sm:max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar recorrência" : "Nova recorrência"}

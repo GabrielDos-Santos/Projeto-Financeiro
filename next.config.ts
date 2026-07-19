@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withSerwistInit from "@serwist/next";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -29,6 +30,8 @@ const csp = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
+  // Service worker (Fase 15, PWA) — carregado como script de mesma origem.
+  "worker-src 'self'",
 ].join("; ");
 
 const securityHeaders = [
@@ -48,4 +51,17 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// PWA (Fase 15, ARQUITETURA-EXPANSAO.md) — desligado em dev: o precache
+// interferiria com o hot-reload do Turbopack (SW serviria assets antigos).
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
+  disable: isDev,
+  // `/offline` é uma rota do App Router, não um arquivo em `public/` — sem
+  // isto o SW só a colocaria em cache depois de uma 1ª visita online, e o
+  // objetivo é a página de fallback já funcionar offline desde o começo.
+  // Bump a revisão só se o conteúdo da página mudar.
+  additionalPrecacheEntries: [{ url: "/offline", revision: "1" }],
+});
+
+export default withSerwist(nextConfig);

@@ -31,6 +31,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Gerado a cada build pelo Serwist a partir de src/app/sw.ts (Fase 15).
+      "public/sw.js",
     ],
   },
 ];
