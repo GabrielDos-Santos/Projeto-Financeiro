@@ -393,6 +393,184 @@ export type Database = {
           },
         ]
       }
+      household_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          household_id: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["household_role"]
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          household_id: string
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["household_role"]
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          household_id?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["household_role"]
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_invites_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      household_members: {
+        Row: {
+          household_id: string
+          id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["household_role"]
+          status: Database["public"]["Enums"]["member_status"]
+          user_id: string
+        }
+        Insert: {
+          household_id: string
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["household_role"]
+          status?: Database["public"]["Enums"]["member_status"]
+          user_id: string
+        }
+        Update: {
+          household_id?: string
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["household_role"]
+          status?: Database["public"]["Enums"]["member_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_members_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      household_shared_accounts: {
+        Row: {
+          account_id: string
+          created_at: string
+          household_id: string
+          id: string
+          shared_by: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          household_id: string
+          id?: string
+          shared_by: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          shared_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_shared_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_shared_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_account_balances"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "household_shared_accounts_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_shared_accounts_shared_by_fkey"
+            columns: ["shared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      households: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "households_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_batches: {
         Row: {
           account_id: string | null
@@ -1025,6 +1203,15 @@ export type Database = {
       }
     }
     Functions: {
+      accept_household_invite: {
+        Args: { p_token_hash: string }
+        Returns: string
+      }
+      account_owned_by_member_of: {
+        Args: { p_account: string; p_household: string }
+        Returns: boolean
+      }
+      account_shared_with_me: { Args: { p_account: string }; Returns: boolean }
       advance_occurrence: {
         Args: {
           p_frequency: Database["public"]["Enums"]["recurrence_freq"]
@@ -1050,21 +1237,64 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      create_household: { Args: { p_name: string }; Returns: string }
       generate_recurring_transactions: { Args: never; Returns: number }
       get_card_available_limit: {
         Args: { p_credit_card_id: string }
         Returns: number
       }
+      get_household_category_breakdown: {
+        Args: { p_household: string; p_month: string }
+        Returns: {
+          amount_cents: number
+          category_color: string
+          category_name: string
+        }[]
+      }
+      get_household_monthly_series: {
+        Args: { p_household: string; p_months: number }
+        Returns: {
+          expense_paid_cents: number
+          income_paid_cents: number
+          month: string
+        }[]
+      }
+      get_household_monthly_summary: {
+        Args: { p_household: string; p_month: string }
+        Returns: {
+          expense_paid_cents: number
+          expense_pending_cents: number
+          income_paid_cents: number
+          income_pending_cents: number
+        }[]
+      }
+      get_invite_details: {
+        Args: { p_token_hash: string }
+        Returns: {
+          accepted_at: string
+          email: string
+          expires_at: string
+          household_id: string
+          household_name: string
+          role: Database["public"]["Enums"]["household_role"]
+        }[]
+      }
       get_or_create_invoice: {
         Args: { p_credit_card_id: string; p_purchase_date: string }
         Returns: string
       }
+      is_admin_of: { Args: { p_household: string }; Returns: boolean }
+      is_admin_over: { Args: { p_user: string }; Returns: boolean }
+      is_member_of: { Args: { p_household: string }; Returns: boolean }
+      shares_household_with: { Args: { p_user: string }; Returns: boolean }
     }
     Enums: {
       account_type: "bank" | "wallet" | "cash" | "investment" | "digital"
       category_type: "income" | "expense"
       goal_status: "active" | "completed" | "archived"
+      household_role: "admin" | "member"
       invoice_status: "open" | "closed" | "paid"
+      member_status: "active" | "removed"
       notification_type:
         | "budget_alert"
         | "invoice_due"
@@ -1207,7 +1437,9 @@ export const Constants = {
       account_type: ["bank", "wallet", "cash", "investment", "digital"],
       category_type: ["income", "expense"],
       goal_status: ["active", "completed", "archived"],
+      household_role: ["admin", "member"],
       invoice_status: ["open", "closed", "paid"],
+      member_status: ["active", "removed"],
       notification_type: [
         "budget_alert",
         "invoice_due",

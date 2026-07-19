@@ -13,6 +13,10 @@ const PROTECTED_PREFIXES = [
   "/metas",
   "/relatorios",
   "/configuracoes",
+  "/familia",
+  // Aceite de convite exige login; o ?next= traz o convidado de volta ao
+  // link depois de entrar/cadastrar (Fase 16).
+  "/convite",
 ];
 
 /**
