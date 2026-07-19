@@ -170,6 +170,18 @@ export async function updateEntryCategory(
   } = await supabase.auth.getUser();
   if (!user) return fail("Sessão expirada. Entre novamente.");
 
+  // A categoria tem que ser DO usuário (decisão 96): a RLS da Fase 16 deixa o
+  // admin LER as categorias dos membros, então sem esta checagem um id
+  // forjado colocaria a categoria de outra pessoa no lançamento dele. O
+  // update em si já é protegido pela RLS de escrita ("own rows").
+  const { data: category } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("id", parsedCategory.data)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!category) return fail("Categoria inválida.");
+
   const { error, count } = await supabase
     .from("transactions")
     .update({ category_id: parsedCategory.data }, { count: "exact" })

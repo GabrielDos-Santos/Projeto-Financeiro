@@ -323,13 +323,17 @@ function EntryCategoryField({
   category,
   categories,
   locked,
+  canEdit,
   isPending,
   onCategoryChange,
 }: {
   entry: Entry;
   category: CategoryOption | undefined;
+  /** Só as categorias DO usuário — nunca oferecer a de outro membro. */
   categories: CategoryOption[];
   locked: boolean;
+  /** Falso em linha de outro membro: a RLS de escrita recusaria o update. */
+  canEdit: boolean;
   isPending: boolean;
   onCategoryChange: (categoryId: string) => void;
 }) {
@@ -341,7 +345,7 @@ function EntryCategoryField({
       </span>
     );
   }
-  if (locked) {
+  if (locked && canEdit) {
     return (
       <Select
         value={entry.category_id ?? ""}
@@ -389,7 +393,7 @@ function EntryCard({
   entry,
   accountsById,
   categoriesById,
-  categories,
+  ownCategories,
   cardsById,
   selected,
   onToggleSelect,
@@ -401,7 +405,8 @@ function EntryCard({
   entry: Entry;
   accountsById: Map<string, AccountOption>;
   categoriesById: Map<string, CategoryOption>;
-  categories: CategoryOption[];
+  /** Só as do usuário — opções do select inline (decisão 96). */
+  ownCategories: CategoryOption[];
   cardsById: Map<string, CardOption>;
   selected: boolean;
   onToggleSelect: (id: string) => void;
@@ -473,8 +478,9 @@ function EntryCard({
             <EntryCategoryField
               entry={entry}
               category={category}
-              categories={categories}
+              categories={ownCategories}
               locked={locked}
+              canEdit={owner == null}
               isPending={isPending}
               onCategoryChange={handleCategoryChange}
             />
@@ -504,7 +510,7 @@ const EntryRow = React.memo(function EntryRow({
   entry,
   accountsById,
   categoriesById,
-  categories,
+  ownCategories,
   cardsById,
   selected,
   onToggleSelect,
@@ -516,7 +522,8 @@ const EntryRow = React.memo(function EntryRow({
   entry: Entry;
   accountsById: Map<string, AccountOption>;
   categoriesById: Map<string, CategoryOption>;
-  categories: CategoryOption[];
+  /** Só as do usuário — opções do select inline (decisão 96). */
+  ownCategories: CategoryOption[];
   cardsById: Map<string, CardOption>;
   selected: boolean;
   onToggleSelect: (id: string) => void;
@@ -565,8 +572,9 @@ const EntryRow = React.memo(function EntryRow({
         <EntryCategoryField
           entry={entry}
           category={category}
-          categories={categories}
+          categories={ownCategories}
           locked={locked}
+          canEdit={owner == null}
           isPending={isPending}
           onCategoryChange={handleCategoryChange}
         />
@@ -621,6 +629,7 @@ export function TransactionsTable({
   entries,
   accounts,
   categories,
+  ownCategories,
   cards,
   selectedIds,
   onToggleSelect,
@@ -631,8 +640,11 @@ export function TransactionsTable({
   memberNames,
 }: {
   entries: Entry[];
+  /** Tudo visível — os mapas resolvem o rótulo de linhas de outros membros. */
   accounts: AccountOption[];
   categories: CategoryOption[];
+  /** Só as do usuário — opções do select inline de categoria (decisão 96). */
+  ownCategories: CategoryOption[];
   cards: CardOption[];
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -693,7 +705,7 @@ export function TransactionsTable({
               entry={entry}
               accountsById={accountsById}
               categoriesById={categoriesById}
-              categories={categories}
+              ownCategories={ownCategories}
               cardsById={cardsById}
               selected={selectedIds.has(entry.id!)}
               onToggleSelect={onToggleSelect}
@@ -721,7 +733,7 @@ export function TransactionsTable({
             entry={entry}
             accountsById={accountsById}
             categoriesById={categoriesById}
-            categories={categories}
+            ownCategories={ownCategories}
             cardsById={cardsById}
             selected={selectedIds.has(entry.id!)}
             onToggleSelect={onToggleSelect}

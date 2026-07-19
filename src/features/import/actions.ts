@@ -158,16 +158,22 @@ async function reconcileBudgetAlertsForCurrentMonth(
  * O banco não tem CHECK cruzando categoria×tipo (precisaria de join) e o Zod
  * só valida UUID — sem esta guarda, uma categoria de receita numa linha de
  * despesa entraria silenciosamente e poluiria os relatórios por categoria.
- * A leitura passa pela RLS: categoria de outro usuário cai no "não existe".
+ *
+ * `user_id` explícito (decisão 96): antes da Fase 16 bastava a RLS ("categoria
+ * de outro usuário cai no não existe"), mas a policy estendida deixa o admin
+ * LER as categorias dos membros — sem o filtro, ele conseguiria gravar os
+ * próprios lançamentos com a categoria de outra pessoa.
  */
 async function validateRowCategories(
   supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
   rows: { categoryId: string; type: "income" | "expense" }[],
 ): Promise<string | null> {
   const uniqueIds = [...new Set(rows.map((r) => r.categoryId))];
   const { data: categories, error } = await supabase
     .from("categories")
     .select("id, type")
+    .eq("user_id", userId)
     .in("id", uniqueIds);
   if (error) return "Não foi possível validar as categorias.";
 
@@ -208,7 +214,11 @@ export async function importAccountEntries(
     return fail("Muitas importações em pouco tempo. Aguarde e tente de novo.");
   }
 
-  const categoryError = await validateRowCategories(supabase, parsed.data.rows);
+  const categoryError = await validateRowCategories(
+    supabase,
+    user.id,
+    parsed.data.rows,
+  );
   if (categoryError) return fail(categoryError);
 
   const { data: batch, error: batchError } = await supabase
@@ -304,6 +314,7 @@ export async function importCardEntries(
 
   const categoryError = await validateRowCategories(
     supabase,
+    user.id,
     parsed.data.rows.map((row) => ({
       categoryId: row.categoryId,
       type: "expense" as const, // fatura de cartão é sempre despesa (D5)

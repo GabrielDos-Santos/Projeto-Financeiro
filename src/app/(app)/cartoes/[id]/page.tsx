@@ -27,17 +27,27 @@ export default async function CartaoDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const myUserId = user?.id ?? "";
+
+  // Contas/categorias aqui só alimentam o diálogo "Pagar fatura" (seletores):
+  // escopo pessoal, senão o admin veria as contas e categorias dos membros
+  // como opções de pagamento (decisão 96).
   const [card, invoices, accountsResult, categoriesResult] = await Promise.all([
     getCard(id),
     getCardInvoices(id),
     supabase
       .from("accounts")
       .select("id, name")
+      .eq("user_id", myUserId)
       .eq("is_archived", false)
       .order("name"),
     supabase
       .from("categories")
       .select("id, name, type, color, icon")
+      .eq("user_id", myUserId)
       .eq("is_archived", false)
       .order("name"),
   ]);

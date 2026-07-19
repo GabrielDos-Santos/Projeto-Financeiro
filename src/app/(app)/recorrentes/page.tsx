@@ -19,23 +19,33 @@ export const metadata: Metadata = { title: "Recorrentes" };
 
 export default async function RecorrentesPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const myUserId = user?.id ?? "";
 
+  // Tudo aqui alimenta SELETORES de formulário: escopo pessoal explícito, já
+  // que a RLS da Fase 16 mostraria contas/categorias/cartões dos membros ao
+  // admin — e uma recorrência é sempre do próprio usuário (decisão 96).
   const [recurring, accountsResult, categoriesResult, cardsResult] =
     await Promise.all([
       getRecurring(),
       supabase
         .from("accounts")
         .select("id, name")
+        .eq("user_id", myUserId)
         .eq("is_archived", false)
         .order("name"),
       supabase
         .from("categories")
         .select("id, name, type, color, icon")
+        .eq("user_id", myUserId)
         .eq("is_archived", false)
         .order("name"),
       supabase
         .from("credit_cards")
         .select("id, name, closing_day, due_day")
+        .eq("user_id", myUserId)
         .eq("is_archived", false)
         .order("name"),
     ]);

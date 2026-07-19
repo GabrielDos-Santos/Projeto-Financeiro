@@ -57,14 +57,22 @@ export function TransactionsView({
   accounts,
   categories,
   cards,
+  ownAccounts,
+  ownCategories,
+  ownCards,
   initialFirstPage,
   myUserId,
   memberNames,
   memberOptions,
 }: {
+  /** Tudo que o usuário ENXERGA — resolve os rótulos das linhas da tabela. */
   accounts: AccountOption[];
   categories: CategoryOption[];
   cards: CardOption[];
+  /** Só o que é DO usuário — alimenta seletores de formulário e filtros. */
+  ownAccounts: AccountOption[];
+  ownCategories: CategoryOption[];
+  ownCards: CardOption[];
   initialFirstPage: EntriesPage;
   /** Dono da sessão — para saber quando um lançamento é de outro membro. */
   myUserId: string;
@@ -190,8 +198,8 @@ export function TransactionsView({
             onFiltersChange={setFilters}
             sort={sort}
             onSortChange={setSort}
-            accounts={accounts}
-            categories={categories}
+            accounts={ownAccounts}
+            categories={ownCategories}
             memberOptions={memberOptions}
           />
         </div>
@@ -260,6 +268,7 @@ export function TransactionsView({
               entries={entries}
               accounts={accounts}
               categories={categories}
+              ownCategories={ownCategories}
               cards={cards}
               selectedIds={selectedIds}
               onToggleSelect={handleToggleSelect}
@@ -339,9 +348,9 @@ export function TransactionsView({
 
       <TransactionFormDrawer
         key={`${drawer.entry?.id ?? "new"}-${drawer.duplicate ?? false}`}
-        accounts={accounts}
-        categories={categories}
-        cards={cards}
+        accounts={ownAccounts}
+        categories={ownCategories}
+        cards={ownCards}
         open={drawer.open}
         onOpenChange={(open) => setDrawer((state) => ({ ...state, open }))}
         entry={drawer.entry}

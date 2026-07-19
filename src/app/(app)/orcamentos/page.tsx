@@ -12,12 +12,19 @@ export const metadata: Metadata = { title: "Orçamentos" };
 export default async function OrcamentosPage() {
   const month = `${todayISO().slice(0, 7)}-01`;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const [usage, categoriesResult] = await Promise.all([
     getBudgetUsage(month),
+    // `user_id` explícito: a RLS da Fase 16 deixa o admin ver as categorias
+    // dos membros, mas orçamento é pessoal — o seletor mostra só as dele
+    // (decisão 96).
     supabase
       .from("categories")
       .select("id, name, type, color, icon")
+      .eq("user_id", user?.id ?? "")
       .eq("type", "expense")
       .eq("is_archived", false)
       .order("name"),

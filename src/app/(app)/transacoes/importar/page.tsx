@@ -14,22 +14,32 @@ export const metadata: Metadata = { title: "Importar dados" };
 
 export default async function ImportarPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const myUserId = user?.id ?? "";
 
+  // O import escreve sempre no próprio usuário: os seletores de contexto e a
+  // revisão só podem oferecer contas/cartões/categorias DELE — a RLS da Fase
+  // 16 traria também as dos membros para o admin (decisão 96).
   const [accountsResult, categoriesResult, cardsResult, recentBatches] =
     await Promise.all([
       supabase
         .from("accounts")
         .select("id, name")
+        .eq("user_id", myUserId)
         .eq("is_archived", false)
         .order("name"),
       supabase
         .from("categories")
         .select("id, name, type, color, icon")
+        .eq("user_id", myUserId)
         .eq("is_archived", false)
         .order("name"),
       supabase
         .from("credit_cards")
         .select("id, name, closing_day, due_day, invoice_name_by_due_month")
+        .eq("user_id", myUserId)
         .eq("is_archived", false)
         .order("name"),
       getRecentImportBatches(),

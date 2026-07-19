@@ -4,9 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/dates";
 
 /**
- * Backup completo em JSON — todas as tabelas de domínio do usuário, via RLS
- * (nunca a service role: é leitura, o próprio `createClient()` já restringe
- * às linhas do usuário). Sempre server-side, mesmo motivo da Fase 11.
+ * Backup completo em JSON — todas as tabelas de domínio DO PRÓPRIO usuário
+ * (nunca a service role: é leitura). Sempre server-side, mesmo motivo da
+ * Fase 11.
+ *
+ * ⚠️ `user_id` explícito em toda query (decisão 96): até a Fase 15 bastava a
+ * RLS "own rows", mas a policy estendida da Fase 16 (decisão 85) faz o admin
+ * de uma casa LER as linhas dos membros — sem estes filtros, o backup
+ * "pessoal" dele passaria a exportar as contas, transações e categorias dos
+ * outros membros junto.
  */
 export async function GET() {
   const supabase = await createClient();
@@ -48,23 +54,31 @@ export async function GET() {
     goals,
     attachments,
   ] = await Promise.all([
-    supabase.from("profiles").select("*").maybeSingle(),
-    supabase.from("settings").select("*").maybeSingle(),
-    supabase.from("accounts").select("*"),
-    supabase.from("categories").select("*"),
-    supabase.from("credit_cards").select("*"),
-    supabase.from("transactions").select("*"),
-    supabase.from("transaction_installments").select("*"),
-    supabase.from("credit_card_invoices").select("*"),
-    supabase.from("recurring_transactions").select("*"),
-    supabase.from("budgets").select("*"),
-    supabase.from("goals").select("*"),
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("settings")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase.from("accounts").select("*").eq("user_id", user.id),
+    supabase.from("categories").select("*").eq("user_id", user.id),
+    supabase.from("credit_cards").select("*").eq("user_id", user.id),
+    supabase.from("transactions").select("*").eq("user_id", user.id),
+    supabase
+      .from("transaction_installments")
+      .select("*")
+      .eq("user_id", user.id),
+    supabase.from("credit_card_invoices").select("*").eq("user_id", user.id),
+    supabase.from("recurring_transactions").select("*").eq("user_id", user.id),
+    supabase.from("budgets").select("*").eq("user_id", user.id),
+    supabase.from("goals").select("*").eq("user_id", user.id),
     // Metadados só — o arquivo em si fica no Storage (fora do escopo do backup).
     supabase
       .from("attachments")
       .select(
         "id, transaction_id, file_name, mime_type, size_bytes, created_at",
-      ),
+      )
+      .eq("user_id", user.id),
   ]);
 
   const backup = {
