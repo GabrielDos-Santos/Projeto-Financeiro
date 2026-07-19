@@ -2,7 +2,7 @@ import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import { createClient } from "@/lib/supabase/server";
-import { toDateOnly } from "@/lib/dates";
+import { toDateOnly, todayISO } from "@/lib/dates";
 
 function currentMonthRange() {
   const now = new Date();
@@ -198,7 +198,14 @@ export type RecentEntry = {
   categoryIcon: string | null;
 };
 
-/** Últimas movimentações (não canceladas) para o feed do dashboard. */
+/**
+ * Últimas movimentações (não canceladas) para o feed do dashboard. Limitado
+ * a `date <= hoje`: `date` é a competência/vencimento, então sem esse corte
+ * as parcelas AGENDADAS para meses/anos à frente (data futura) apareceriam no
+ * topo de "As mais recentes" — o que não é uma movimentação recente, é uma
+ * previsão. O dashboard tem, assim, sua própria ordenação (sempre o histórico
+ * mais recente até hoje), independente do que estiver ordenado em /transacoes.
+ */
 export async function getRecentEntries(limit = 8): Promise<RecentEntry[]> {
   const supabase = await createClient();
 
@@ -209,6 +216,7 @@ export async function getRecentEntries(limit = 8): Promise<RecentEntry[]> {
         "id, description, date, amount_cents, type, transfer_direction, category_id",
       )
       .neq("status", "cancelled")
+      .lte("date", todayISO())
       .order("date", { ascending: false })
       .order("id", { ascending: false })
       .limit(limit),

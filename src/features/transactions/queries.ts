@@ -19,6 +19,22 @@ export const ENTRIES_PAGE_SIZE_OPTIONS = [25, 50, 75, 100] as const;
 export type EntriesPageSize = (typeof ENTRIES_PAGE_SIZE_OPTIONS)[number];
 export const DEFAULT_ENTRIES_PAGE_SIZE: EntriesPageSize = 25;
 
+/**
+ * Ordenação da lista. `date` é a competência/vencimento (não created_at, que
+ * a view não expõe) — então "mais antigas" ordenado por data crescente é
+ * justamente o que traz à tona as parcelas/pendências mais atrasadas quando
+ * combinado com o filtro de status = pendente. `amount` usa `amount_cents`
+ * (sempre positivo; o sinal vem do tipo), ou seja, ordena por VALOR absoluto.
+ */
+export const ENTRY_SORT_OPTIONS = [
+  { value: "date_desc", label: "Mais recentes" },
+  { value: "date_asc", label: "Mais antigas" },
+  { value: "amount_desc", label: "Maior valor" },
+  { value: "amount_asc", label: "Menor valor" },
+] as const;
+export type EntrySort = (typeof ENTRY_SORT_OPTIONS)[number]["value"];
+export const DEFAULT_ENTRY_SORT: EntrySort = "date_desc";
+
 export type EntryFilters = {
   search?: string;
   type?: "income" | "expense" | "transfer";
@@ -39,11 +55,23 @@ export async function fetchEntriesPage(
   filters: EntryFilters,
   page: number,
   pageSize: EntriesPageSize,
+  sort: EntrySort = DEFAULT_ENTRY_SORT,
 ): Promise<EntriesPage> {
+  // `id` desc como desempate estável mantém a paginação por offset sem pular
+  // nem repetir linha quando a chave primária de ordenação tem empates.
+  const [column, ascending] =
+    sort === "date_asc"
+      ? (["date", true] as const)
+      : sort === "amount_desc"
+        ? (["amount_cents", false] as const)
+        : sort === "amount_asc"
+          ? (["amount_cents", true] as const)
+          : (["date", false] as const);
+
   let query = supabase
     .from("v_entries")
     .select("*", { count: "exact" })
-    .order("date", { ascending: false })
+    .order(column, { ascending })
     .order("id", { ascending: false });
 
   if (filters.type) query = query.eq("type", filters.type);

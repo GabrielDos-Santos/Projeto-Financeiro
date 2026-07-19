@@ -1,10 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDownUp, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { EntryFilters } from "../queries";
+import {
+  ENTRY_SORT_OPTIONS,
+  type EntryFilters,
+  type EntrySort,
+} from "../queries";
 import type { AccountOption, CategoryOption } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,11 +54,15 @@ function FilterSelect({
 export function TransactionFilters({
   filters,
   onFiltersChange,
+  sort,
+  onSortChange,
   accounts,
   categories,
 }: {
   filters: EntryFilters;
   onFiltersChange: (filters: EntryFilters) => void;
+  sort: EntrySort;
+  onSortChange: (sort: EntrySort) => void;
   accounts: AccountOption[];
   categories: CategoryOption[];
 }) {
@@ -113,6 +121,25 @@ export function TransactionFilters({
           !filtersOpen && "hidden sm:flex",
         )}
       >
+        {/* Ordenação (não é filtro — não entra na contagem do badge nem no
+         * "Limpar"). `date` é competência/vencimento: "Mais antigas" + status
+         * pendente traz à tona as parcelas atrasadas primeiro. */}
+        <Select
+          value={sort}
+          onValueChange={(v) => onSortChange(v as EntrySort)}
+        >
+          <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-40">
+            <ArrowDownUp className="size-3.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ENTRY_SORT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <FilterSelect
           value={filters.type}
           onValueChange={(v) => set("type", v as EntryFilters["type"])}

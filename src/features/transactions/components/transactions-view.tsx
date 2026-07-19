@@ -17,10 +17,12 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { deleteEntries } from "../actions";
 import {
   DEFAULT_ENTRIES_PAGE_SIZE,
+  DEFAULT_ENTRY_SORT,
   ENTRIES_PAGE_SIZE_OPTIONS,
   type EntriesPage,
   type EntriesPageSize,
   type EntryFilters,
+  type EntrySort,
 } from "../queries";
 import { useEntries } from "../use-entries";
 import type {
@@ -79,11 +81,12 @@ export function TransactionsView({
   const [pageSize, setPageSize] = React.useState<EntriesPageSize>(
     DEFAULT_ENTRIES_PAGE_SIZE,
   );
-  // Filtro ou tamanho de página mudou: a página 1 pode não existir mais como
-  // "página atual" fazia sentido — sempre volta ao início.
+  const [sort, setSort] = React.useState<EntrySort>(DEFAULT_ENTRY_SORT);
+  // Filtro, tamanho de página ou ordenação mudou: a "página atual" pode não
+  // fazer mais sentido — sempre volta ao início.
   React.useEffect(() => {
     setPage(1);
-  }, [effectiveFilters, pageSize]);
+  }, [effectiveFilters, pageSize, sort]);
 
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(
     () => new Set(),
@@ -113,7 +116,13 @@ export function TransactionsView({
     }
   }, [searchParams, router]);
 
-  const query = useEntries(effectiveFilters, page, pageSize, initialFirstPage);
+  const query = useEntries(
+    effectiveFilters,
+    page,
+    pageSize,
+    sort,
+    initialFirstPage,
+  );
   const entries = React.useMemo(() => query.data?.entries ?? [], [query.data]);
   const totalCount = query.data?.totalCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -176,6 +185,8 @@ export function TransactionsView({
           <TransactionFilters
             filters={filters}
             onFiltersChange={setFilters}
+            sort={sort}
+            onSortChange={setSort}
             accounts={accounts}
             categories={categories}
           />

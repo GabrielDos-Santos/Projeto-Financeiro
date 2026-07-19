@@ -11,6 +11,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import { todayISO } from "@/lib/dates";
 import { applyFieldErrors } from "@/lib/form";
+import { cn } from "@/lib/utils";
 import { computeInvoicePeriod } from "@/services/invoices";
 import {
   createCardInstallmentPurchase,
@@ -178,7 +179,7 @@ export function TransactionFormDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto">
+      <SheetContent className="overflow-x-hidden overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>
@@ -192,7 +193,16 @@ export function TransactionFormDrawer({
         <div className="flex flex-col gap-4 px-4 pb-4">
           {!isEditing && (
             <Tabs value={kind} onValueChange={(v) => setKind(v as FormKind)}>
-              <TabsList className="w-full">
+              {/* Grid em vez de uma linha só: no drawer estreito do mobile as
+               * 4 abas ("Transferência" é longa) estouravam a largura e ficavam
+               * cortadas dos dois lados. 2 colunas no mobile (2×2 ou 2+1),
+               * linha única a partir do sm, onde o drawer é largo o bastante. */}
+              <TabsList
+                className={cn(
+                  "grid h-auto w-full grid-cols-2 gap-1 [&>button]:h-9",
+                  cards.length > 0 ? "sm:grid-cols-4" : "sm:grid-cols-3",
+                )}
+              >
                 <TabsTrigger value="expense">Despesa</TabsTrigger>
                 <TabsTrigger value="income">Receita</TabsTrigger>
                 {cards.length > 0 && (
