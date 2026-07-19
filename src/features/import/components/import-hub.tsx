@@ -75,9 +75,9 @@ export function ImportHub({
         <button type="button" onClick={() => setActive("account")}>
           <Card className="h-full text-left transition-colors hover:border-primary/50">
             <CardContent className="flex flex-col gap-2">
-              <Landmark className="text-muted-foreground size-5" />
+              <Landmark className="size-5 text-muted-foreground" />
               <p className="font-medium">Extrato de conta</p>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 Importe um CSV do seu banco — várias linhas de uma vez.
               </p>
             </CardContent>
@@ -90,9 +90,9 @@ export function ImportHub({
         >
           <Card className="h-full text-left transition-colors hover:border-primary/50 disabled:opacity-50">
             <CardContent className="flex flex-col gap-2">
-              <CreditCard className="text-muted-foreground size-5" />
+              <CreditCard className="size-5 text-muted-foreground" />
               <p className="font-medium">Fatura de cartão</p>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 {cards.length === 0
                   ? "Cadastre um cartão primeiro."
                   : "Importe as compras de uma competência inteira."}
@@ -103,9 +103,9 @@ export function ImportHub({
         <button type="button" onClick={() => setActive("installment")}>
           <Card className="h-full text-left transition-colors hover:border-primary/50">
             <CardContent className="flex flex-col gap-2">
-              <Layers className="text-muted-foreground size-5" />
+              <Layers className="size-5 text-muted-foreground" />
               <p className="font-medium">Compra parcelada em andamento</p>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 Reconstrua uma compra com parcelas já pagas e futuras.
               </p>
             </CardContent>
@@ -133,9 +133,9 @@ export function ImportHub({
                     <p className="truncate text-sm font-medium">
                       {batch.file_name}
                     </p>
-                    <p className="text-muted-foreground text-xs">
-                      {BATCH_KIND_LABELS[batch.kind]} · {batch.row_count} linha(s)
-                      · {formatDateBR(batch.created_at.slice(0, 10))}
+                    <p className="text-xs text-muted-foreground">
+                      {BATCH_KIND_LABELS[batch.kind]} · {batch.row_count}{" "}
+                      linha(s) · {formatDateBR(batch.created_at.slice(0, 10))}
                     </p>
                   </div>
                   <Button

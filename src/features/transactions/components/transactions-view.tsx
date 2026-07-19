@@ -3,7 +3,14 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight, ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
+import {
+  ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { useDebounce } from "@/hooks/use-debounce";
@@ -237,7 +244,9 @@ export function TransactionsView({
                 <span>Por página</span>
                 <Select
                   value={String(pageSize)}
-                  onValueChange={(v) => setPageSize(Number(v) as EntriesPageSize)}
+                  onValueChange={(v) =>
+                    setPageSize(Number(v) as EntriesPageSize)
+                  }
                 >
                   <SelectTrigger size="sm" className="w-20">
                     <SelectValue />

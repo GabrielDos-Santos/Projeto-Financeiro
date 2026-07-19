@@ -101,10 +101,12 @@ function InvoiceCard({
   invoice,
   accounts,
   categories,
+  labelByDueMonth,
 }: {
   invoice: InvoiceWithHistory;
   accounts: AccountOption[];
   categories: CategoryOption[];
+  labelByDueMonth: boolean;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const [payOpen, setPayOpen] = React.useState(false);
@@ -134,9 +136,16 @@ function InvoiceCard({
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <p className="font-medium capitalize">
-                {invoice.reference_month
-                  ? formatMonthBR(invoice.reference_month)
-                  : "—"}
+                {/* Rótulo por cartão (migration 0013) — bancos variam: a
+                 * maioria nomeia pela competência, o Sicredi pelo mês de
+                 * vencimento. Não afeta nenhum cálculo, só o texto aqui. */}
+                {(() => {
+                  const monthSource =
+                    labelByDueMonth && invoice.due_date
+                      ? invoice.due_date
+                      : invoice.reference_month;
+                  return monthSource ? formatMonthBR(monthSource) : "—";
+                })()}
               </p>
               <StatusBadge status={invoice.status} />
               {isPaid && invoice.paymentIsHistorical && <HistoricalBadge />}
@@ -225,10 +234,13 @@ export function InvoiceTimeline({
   invoices,
   accounts,
   categories,
+  labelByDueMonth = false,
 }: {
   invoices: InvoiceWithHistory[];
   accounts: AccountOption[];
   categories: CategoryOption[];
+  /** `credit_cards.invoice_name_by_due_month` do cartão desta timeline. */
+  labelByDueMonth?: boolean;
 }) {
   if (invoices.length === 0) {
     return (
@@ -248,6 +260,7 @@ export function InvoiceTimeline({
           invoice={invoice}
           accounts={accounts}
           categories={categories}
+          labelByDueMonth={labelByDueMonth}
         />
       ))}
     </div>

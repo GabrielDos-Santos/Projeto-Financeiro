@@ -174,7 +174,10 @@ const EntryRow = React.memo(function EntryRow({
 
   function handleCategoryChange(categoryId: string) {
     startTransition(async () => {
-      const result = await updateEntryCategory(entry.transaction_id, categoryId);
+      const result = await updateEntryCategory(
+        entry.transaction_id,
+        categoryId,
+      );
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -184,7 +187,10 @@ const EntryRow = React.memo(function EntryRow({
   }
 
   return (
-    <TableRow className={cn(cancelled && "opacity-50")} data-state={selected ? "selected" : undefined}>
+    <TableRow
+      className={cn(cancelled && "opacity-50")}
+      data-state={selected ? "selected" : undefined}
+    >
       <TableCell className="w-10">
         <Checkbox
           checked={selected}
@@ -417,7 +423,9 @@ export function TransactionsTable({
         <TableRow>
           <TableHead className="w-10">
             <Checkbox
-              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              checked={
+                allSelected ? true : someSelected ? "indeterminate" : false
+              }
               onCheckedChange={(checked) => onToggleSelectAll(Boolean(checked))}
               aria-label="Selecionar todos os lançamentos desta página"
             />

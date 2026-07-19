@@ -32,6 +32,9 @@ export type CardOption = {
   name: string;
   closingDay: number;
   dueDay: number;
+  /** `credit_cards.invoice_name_by_due_month` — opcional: só o wizard de
+   * import precisa disso pra alinhar o seletor de mês ao rótulo exibido. */
+  invoiceNameByDueMonth?: boolean;
 };
 
 /**

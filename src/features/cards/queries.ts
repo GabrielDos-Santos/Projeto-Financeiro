@@ -1,10 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Entry } from "@/features/transactions/types";
-import type {
-  CardWithLimit,
-  CreditCard,
-  InvoiceWithHistory,
-} from "./types";
+import type { CardWithLimit, CreditCard, InvoiceWithHistory } from "./types";
 
 /**
  * Cartões + limite disponível e total da fatura aberta.

@@ -103,7 +103,7 @@ function AdvancedHistoricalField<T extends { affectsBalance: boolean }>({
 }) {
   return (
     <Collapsible>
-      <CollapsibleTrigger className="text-muted-foreground flex items-center gap-1 text-xs font-medium hover:underline">
+      <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:underline">
         <ChevronDown className="size-3.5" aria-hidden />
         Avançado
       </CollapsibleTrigger>
@@ -124,7 +124,7 @@ function AdvancedHistoricalField<T extends { affectsBalance: boolean }>({
                   <History className="size-3.5" aria-hidden />
                   Lançamento histórico
                 </FormLabel>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   Não afeta o saldo atual — use para dinheiro que já estava
                   refletido no saldo inicial da conta.
                 </p>

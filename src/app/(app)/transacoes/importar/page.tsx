@@ -29,7 +29,7 @@ export default async function ImportarPage() {
         .order("name"),
       supabase
         .from("credit_cards")
-        .select("id, name, closing_day, due_day")
+        .select("id, name, closing_day, due_day, invoice_name_by_due_month")
         .eq("is_archived", false)
         .order("name"),
       getRecentImportBatches(),
@@ -42,6 +42,7 @@ export default async function ImportarPage() {
     name: card.name,
     closingDay: card.closing_day,
     dueDay: card.due_day,
+    invoiceNameByDueMonth: card.invoice_name_by_due_month,
   }));
 
   return (

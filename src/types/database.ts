@@ -293,6 +293,7 @@ export type Database = {
           due_day: number
           icon: string | null
           id: string
+          invoice_name_by_due_month: boolean
           is_archived: boolean
           limit_cents: number
           name: string
@@ -307,6 +308,7 @@ export type Database = {
           due_day: number
           icon?: string | null
           id?: string
+          invoice_name_by_due_month?: boolean
           is_archived?: boolean
           limit_cents: number
           name: string
@@ -321,6 +323,7 @@ export type Database = {
           due_day?: number
           icon?: string | null
           id?: string
+          invoice_name_by_due_month?: boolean
           is_archived?: boolean
           limit_cents?: number
           name?: string

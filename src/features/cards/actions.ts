@@ -45,6 +45,7 @@ export async function createCard(input: unknown): Promise<ActionResult<null>> {
     due_day: parsed.data.dueDay,
     color: parsed.data.color,
     icon: parsed.data.icon,
+    invoice_name_by_due_month: parsed.data.invoiceNameByDueMonth,
   });
 
   if (error) {
@@ -89,6 +90,7 @@ export async function updateCard(
         due_day: parsed.data.dueDay,
         color: parsed.data.color,
         icon: parsed.data.icon,
+        invoice_name_by_due_month: parsed.data.invoiceNameByDueMonth,
       },
       { count: "exact" },
     )
@@ -178,7 +180,9 @@ export async function payInvoice(input: unknown): Promise<ActionResult<null>> {
 
   const { data: invoice } = await supabase
     .from("v_invoice_totals")
-    .select("invoice_id, status, total_cents, reference_month, credit_card_id")
+    .select(
+      "invoice_id, status, total_cents, reference_month, due_date, credit_card_id",
+    )
     .eq("invoice_id", parsed.data.invoiceId)
     .maybeSingle();
 
@@ -190,13 +194,18 @@ export async function payInvoice(input: unknown): Promise<ActionResult<null>> {
 
   const { data: card } = await supabase
     .from("credit_cards")
-    .select("name")
+    .select("name, invoice_name_by_due_month")
     .eq("id", invoice.credit_card_id!)
     .maybeSingle();
 
-  const monthLabel = invoice.reference_month
-    ? formatMonthBR(invoice.reference_month)
-    : "";
+  // Rótulo por cartão (decisão do usuário, não universal — bancos variam):
+  // Sicredi chama a fatura pelo mês de VENCIMENTO; a maioria chama pelo mês
+  // de competência (mesmo mês do fechamento). Ver migration 0013.
+  const monthSource =
+    card?.invoice_name_by_due_month && invoice.due_date
+      ? invoice.due_date
+      : invoice.reference_month;
+  const monthLabel = monthSource ? formatMonthBR(monthSource) : "";
   const description = `Pagamento fatura ${card?.name ?? "cartão"} · ${monthLabel}`;
   const paidAt = new Date().toISOString();
 

@@ -16,7 +16,7 @@ export function HistoricalBadge() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="text-muted-foreground gap-1">
+        <Badge variant="outline" className="gap-1 text-muted-foreground">
           <History className="size-3" aria-hidden />
           Histórico
         </Badge>

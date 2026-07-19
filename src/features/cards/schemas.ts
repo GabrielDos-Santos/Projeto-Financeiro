@@ -26,6 +26,9 @@ export const cardFormSchema = z.object({
     .max(28, "Entre 1 e 28"),
   color: z.string().regex(/^#[0-9a-f]{6}$/i, "Cor inválida"),
   icon: z.string().trim().min(1, "Escolha um ícone").max(50, "Ícone inválido"),
+  // Sem .default() de propósito — mesma armadilha das decisões 37/43/52/56
+  // com o resolver do RHF; defaultValues sempre fornece `false` explícito.
+  invoiceNameByDueMonth: z.boolean(),
 });
 
 export type CardFormInput = z.infer<typeof cardFormSchema>;

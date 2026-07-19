@@ -107,6 +107,7 @@ export default async function CartaoDetailPage({
           invoices={invoices}
           accounts={accounts}
           categories={categories}
+          labelByDueMonth={card.invoice_name_by_due_month}
         />
       </div>
     </div>

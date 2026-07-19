@@ -35,5 +35,8 @@ export async function getCategorySuggestionSource(): Promise<
     .filter((row): row is { description: string; category_id: string } =>
       Boolean(row.category_id),
     )
-    .map((row) => ({ description: row.description, categoryId: row.category_id }));
+    .map((row) => ({
+      description: row.description,
+      categoryId: row.category_id,
+    }));
 }

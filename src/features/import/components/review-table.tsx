@@ -51,15 +51,17 @@ export function ReviewTable({
   const allIncluded = rows.every((r) => r.include);
 
   return (
-    <div className="max-h-[420px] overflow-auto rounded-md border">
+    <div className="h-full overflow-auto rounded-md border">
       <Table>
-        <TableHeader className="bg-background sticky top-0 z-10">
+        <TableHeader className="sticky top-0 z-10 bg-background">
           <TableRow>
             <TableHead className="w-10">
               <Checkbox
                 checked={allIncluded}
                 onCheckedChange={(checked) =>
-                  onChange(rows.map((r) => ({ ...r, include: Boolean(checked) })))
+                  onChange(
+                    rows.map((r) => ({ ...r, include: Boolean(checked) })),
+                  )
                 }
                 aria-label="Selecionar todas"
               />
@@ -72,7 +74,9 @@ export function ReviewTable({
             {mode === "account" && (
               <TableHead className="w-28">Afeta saldo</TableHead>
             )}
-            <TableHead className="text-right">Valor</TableHead>
+            <TableHead className="sticky right-0 z-20 border-l bg-background text-right">
+              Valor
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -92,16 +96,16 @@ export function ReviewTable({
                   aria-label={`Incluir linha ${row.description}`}
                 />
               </TableCell>
-              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+              <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
                 {formatDateBR(row.dateISO)}
               </TableCell>
-              <TableCell className="min-w-48">
+              <TableCell className="min-w-md">
                 <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm">{row.description}</span>
+                  <span className="text-sm">{row.description}</span>
                   {row.isDuplicate && (
                     <Badge
                       variant="outline"
-                      className="border-amber-500/40 text-amber-600 shrink-0 gap-1 dark:text-amber-400"
+                      className="shrink-0 gap-1 border-amber-500/40 text-amber-600 dark:text-amber-400"
                     >
                       <AlertTriangle className="size-3" />
                       Duplicata?
@@ -124,7 +128,10 @@ export function ReviewTable({
                       .filter((c) => c.type === row.type)
                       .map((category) => (
                         <SelectItem key={category.id} value={category.id}>
-                          <DomainIcon name={category.icon} className="size-3.5" />
+                          <DomainIcon
+                            name={category.icon}
+                            className="size-3.5"
+                          />
                           {category.name}
                         </SelectItem>
                       ))}
@@ -189,7 +196,7 @@ export function ReviewTable({
                   />
                 </TableCell>
               )}
-              <TableCell className="text-right text-sm tabular-nums">
+              <TableCell className="sticky right-0 z-10 border-l bg-background text-right text-sm tabular-nums">
                 {formatCents(row.amountCents)}
               </TableCell>
             </TableRow>

@@ -341,20 +341,41 @@ export async function createCardInstallmentPurchase(
     parsed.data.amountCents,
     parsed.data.installmentsTotal,
   );
-  const purchaseDate = parseDateOnly(parsed.data.date);
 
-  // Cada parcela cai na fatura do seu mês (compra + k meses). Abre/reaproveita
-  // todas as faturas necessárias e lê a data de vencimento de cada uma.
-  const monthDates = amounts.map((_, k) =>
-    toDateOnly(addMonths(purchaseDate, k)),
+  // 1ª parcela: fatura da data REAL da compra (regra do fechamento). Demais:
+  // exatamente UMA fatura por mês a partir dela, via dia 1 de cada mês —
+  // dia 1 nunca passa do fechamento (1–28), então cada parcela avança uma
+  // fatura. Antes usávamos `data da compra + k meses`, e o clamp do
+  // addMonths quebrava a sequência: compra 30/01 com fechamento 28 rendia
+  // parcela 2 em 28/02, que caía na MESMA fatura de fevereiro da parcela 1
+  // (28 não passa do fechamento 28), deixando março sem parcela.
+  const { data: firstInvoiceId, error: firstInvoiceError } = await supabase.rpc(
+    "get_or_create_invoice",
+    {
+      p_credit_card_id: parsed.data.creditCardId,
+      p_purchase_date: parsed.data.date,
+    },
   );
-  const invoiceIds: string[] = [];
-  for (const monthDate of monthDates) {
+  if (firstInvoiceError || !firstInvoiceId) {
+    return fail("Não foi possível abrir as faturas do cartão. Tente de novo.");
+  }
+  const { data: firstInvoice } = await supabase
+    .from("credit_card_invoices")
+    .select("reference_month")
+    .eq("id", firstInvoiceId)
+    .maybeSingle();
+  if (!firstInvoice) {
+    return fail("Não foi possível ler as faturas do cartão. Tente novamente.");
+  }
+  const firstRefMonth = parseDateOnly(firstInvoice.reference_month);
+
+  const invoiceIds: string[] = [firstInvoiceId];
+  for (let k = 1; k < amounts.length; k++) {
     const { data: invoiceId, error: invoiceError } = await supabase.rpc(
       "get_or_create_invoice",
       {
         p_credit_card_id: parsed.data.creditCardId,
-        p_purchase_date: monthDate,
+        p_purchase_date: toDateOnly(addMonths(firstRefMonth, k)),
       },
     );
     if (invoiceError || !invoiceId) {
@@ -606,7 +627,9 @@ async function settleInvoiceHistorically(
  * tocadas por parcelas já pagas são fechadas como pagas (histórico). */
 export async function createCardInstallmentBackfillPurchase(
   input: unknown,
-): Promise<ActionResult<{ alert: BudgetAlert | null; invoicesSettled: number }>> {
+): Promise<
+  ActionResult<{ alert: BudgetAlert | null; invoicesSettled: number }>
+> {
   const parsed = installmentBackfillCardSchema.safeParse(input);
   if (!parsed.success) {
     return fail(
@@ -630,18 +653,38 @@ export async function createCardInstallmentBackfillPurchase(
     parsed.data.amountCents,
     parsed.data.installmentsTotal,
   );
-  const purchaseDate = parseDateOnly(parsed.data.date);
-  const monthDates = amounts.map((_, k) =>
-    toDateOnly(addMonths(purchaseDate, k)),
-  );
 
-  const invoiceIds: string[] = [];
-  for (const monthDate of monthDates) {
+  // Mesma sequência de faturas de `createCardInstallmentPurchase`: 1ª pela
+  // data real da compra, demais via dia 1 de (competência da 1ª + k) — o
+  // clamp do addMonths sobre a data da compra podia colocar duas parcelas
+  // na mesma fatura (compra dia 30 + fechamento 28 + fevereiro no meio).
+  const { data: firstInvoiceId, error: firstInvoiceError } = await supabase.rpc(
+    "get_or_create_invoice",
+    {
+      p_credit_card_id: parsed.data.creditCardId,
+      p_purchase_date: parsed.data.date,
+    },
+  );
+  if (firstInvoiceError || !firstInvoiceId) {
+    return fail("Não foi possível abrir as faturas do cartão. Tente de novo.");
+  }
+  const { data: firstInvoice } = await supabase
+    .from("credit_card_invoices")
+    .select("reference_month")
+    .eq("id", firstInvoiceId)
+    .maybeSingle();
+  if (!firstInvoice) {
+    return fail("Não foi possível ler as faturas do cartão. Tente novamente.");
+  }
+  const firstRefMonth = parseDateOnly(firstInvoice.reference_month);
+
+  const invoiceIds: string[] = [firstInvoiceId];
+  for (let k = 1; k < amounts.length; k++) {
     const { data: invoiceId, error: invoiceError } = await supabase.rpc(
       "get_or_create_invoice",
       {
         p_credit_card_id: parsed.data.creditCardId,
-        p_purchase_date: monthDate,
+        p_purchase_date: toDateOnly(addMonths(firstRefMonth, k)),
       },
     );
     if (invoiceError || !invoiceId) {
@@ -715,7 +758,9 @@ export async function createCardInstallmentBackfillPurchase(
           amount_cents: amountCents,
           due_date: dueDate,
           status: (isPaid ? "paid" : "pending") as "paid" | "pending",
-          paid_at: isPaid ? new Date(`${dueDate}T12:00:00`).toISOString() : null,
+          paid_at: isPaid
+            ? new Date(`${dueDate}T12:00:00`).toISOString()
+            : null,
           invoice_id: invoiceIds[k],
           affects_balance: !isPaid,
         };
@@ -745,8 +790,9 @@ export async function createCardInstallmentBackfillPurchase(
 
   revalidateWithCard(parsed.data.creditCardId);
   const currentMonth = todayISO().slice(0, 7);
-  const touchedThisMonth = monthDates.some(
-    (d) => d.slice(0, 7) === currentMonth,
+  const touchedThisMonth = amounts.some(
+    (_, k) =>
+      toDateOnly(addMonths(firstRefMonth, k)).slice(0, 7) === currentMonth,
   );
   const alert = touchedThisMonth
     ? await maybeBudgetAlert(
@@ -952,9 +998,7 @@ export async function setEntryStatus(
   return ok(null);
 }
 
-type EntryTarget =
-  | { transferGroupId: string }
-  | { transactionId: string };
+type EntryTarget = { transferGroupId: string } | { transactionId: string };
 
 /**
  * Núcleo de exclusão compartilhado por `deleteEntry` (1 alvo) e

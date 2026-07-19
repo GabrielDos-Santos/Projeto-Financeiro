@@ -191,7 +191,7 @@ export function PayInvoiceDialog({
                 )}
               />
             </div>
-            <p className="text-muted-foreground text-xs">
+            <p className="text-xs text-muted-foreground">
               A despesa de pagamento debita o saldo da conta, mas não conta de
               novo nos relatórios — as compras já contam por competência.
             </p>
@@ -211,7 +211,7 @@ export function PayInvoiceDialog({
                       <History className="size-3.5" aria-hidden />
                       Pagamento histórico
                     </FormLabel>
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-xs text-muted-foreground">
                       Não afeta o saldo atual — use se esta fatura já estava
                       refletida no saldo inicial da conta.
                       {isPastMonth &&

@@ -11,6 +11,7 @@ import { createCard, updateCard } from "../actions";
 import { cardFormSchema, type CardFormInput } from "../schemas";
 import { bestPurchaseDay, type CreditCard } from "../types";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ const DEFAULT_VALUES: CardFormInput = {
   dueDay: 10,
   color: "#8b5cf6",
   icon: "credit-card",
+  invoiceNameByDueMonth: false,
 };
 
 type CardFormDialogProps = {
@@ -90,6 +92,7 @@ export function CardFormDialog({
             dueDay: card.due_day,
             color: card.color ?? DEFAULT_VALUES.color,
             icon: card.icon ?? DEFAULT_VALUES.icon,
+            invoiceNameByDueMonth: card.invoice_name_by_due_month,
           }
         : DEFAULT_VALUES,
     );
@@ -234,6 +237,33 @@ export function CardFormDialog({
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="invoiceNameByDueMonth"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(Boolean(checked))
+                      }
+                    />
+                  </FormControl>
+                  <div className="space-y-0.5 leading-none">
+                    <FormLabel className="font-normal">
+                      Nomear a fatura pelo mês de vencimento
+                    </FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Alguns bancos (ex.: Sicredi) chamam a fatura pelo mês em
+                      que ela vence, não pelo mês das compras — útil quando o
+                      vencimento é um dia menor que o fechamento. Só muda o nome
+                      exibido, nenhum cálculo muda.
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="color"

@@ -1,4 +1,4 @@
-import { addMonths, getDate, setDate } from "date-fns";
+import { addMonths, getDate, setDate, subMonths } from "date-fns";
 
 import { parseDateOnly, toDateOnly } from "@/lib/dates";
 
@@ -33,4 +33,54 @@ export function computeInvoicePeriod(
     closingDate: toDateOnly(closingDate),
     dueDate: toDateOnly(dueDate),
   };
+}
+
+/**
+ * Mês como o NOME da fatura aparece pro usuário (migration 0013): por
+ * competência (padrão) ou por vencimento, se o cartão tiver
+ * `invoice_name_by_due_month`. Usado em telas que deixam o usuário escolher
+ * um mês vendo o mesmo rótulo da timeline (ex.: contexto do import de
+ * fatura) — sem isso, "competência" e "nome exibido" divergem 1 mês nos
+ * cartões com vencimento menor que o fechamento (ex.: Sicredi).
+ */
+export function invoiceLabelMonth(
+  closingDay: number,
+  dueDay: number,
+  referenceMonthISO: string,
+  labelByDueMonth: boolean,
+): string {
+  if (!labelByDueMonth) return referenceMonthISO;
+  const { dueDate } = computeInvoicePeriod(
+    closingDay,
+    dueDay,
+    referenceMonthISO,
+  );
+  return toDateOnly(setDate(parseDateOnly(dueDate), 1));
+}
+
+/**
+ * Inversa de `invoiceLabelMonth`: dado o mês que o usuário escolheu vendo o
+ * NOME exibido da fatura, devolve o `reference_month` (competência) real a
+ * gravar/consultar. Só desloca quando `labelByDueMonth` está ligado E o
+ * cartão tem vencimento <= fechamento (único caso em que o nome exibido
+ * diverge da competência) — testa os dois meses candidatos em vez de supor
+ * "sempre -1 mês" para não depender da configuração do cartão.
+ */
+export function resolveReferenceMonthForLabel(
+  closingDay: number,
+  dueDay: number,
+  labelMonthISO: string,
+  labelByDueMonth: boolean,
+): string {
+  if (!labelByDueMonth) return labelMonthISO;
+  const candidates = [
+    labelMonthISO,
+    toDateOnly(subMonths(parseDateOnly(labelMonthISO), 1)),
+  ];
+  const match = candidates.find(
+    (candidate) =>
+      invoiceLabelMonth(closingDay, dueDay, candidate, true) ===
+      labelMonthISO,
+  );
+  return match ?? labelMonthISO;
 }

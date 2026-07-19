@@ -76,9 +76,9 @@ export function InstallmentBackfillForm({
           </TabsList>
         </Tabs>
       )}
-      <p className="text-muted-foreground text-xs">
-        Reconstrua uma compra parcelada que já está em andamento: as parcelas
-        já pagas nascem históricas (não afetam o saldo atual) e as futuras
+      <p className="text-xs text-muted-foreground">
+        Reconstrua uma compra parcelada que já está em andamento: as parcelas já
+        pagas nascem históricas (não afetam o saldo atual) e as futuras
         continuam normais.
       </p>
       {mode === "account" ? (
@@ -172,7 +172,10 @@ function AccountBackfillForm({
               <FormItem>
                 <FormLabel>Valor total</FormLabel>
                 <FormControl>
-                  <MoneyInput value={field.value} onValueChange={field.onChange} />
+                  <MoneyInput
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -185,7 +188,10 @@ function AccountBackfillForm({
               <FormItem>
                 <FormLabel>Data da compra</FormLabel>
                 <FormControl>
-                  <DatePicker value={field.value} onValueChange={field.onChange} />
+                  <DatePicker
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -260,11 +266,13 @@ function AccountBackfillForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {Array.from({ length: 119 }, (_, i) => i + 2).map((count) => (
-                      <SelectItem key={count} value={String(count)}>
-                        {count}x
-                      </SelectItem>
-                    ))}
+                    {Array.from({ length: 119 }, (_, i) => i + 2).map(
+                      (count) => (
+                        <SelectItem key={count} value={String(count)}>
+                          {count}x
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -278,7 +286,10 @@ function AccountBackfillForm({
               <FormItem>
                 <FormLabel>Vencimento da 1ª parcela</FormLabel>
                 <FormControl>
-                  <DatePicker value={field.value} onValueChange={field.onChange} />
+                  <DatePicker
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -420,7 +431,10 @@ function CardBackfillForm({
               <FormItem>
                 <FormLabel>Valor total</FormLabel>
                 <FormControl>
-                  <MoneyInput value={field.value} onValueChange={field.onChange} />
+                  <MoneyInput
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -433,7 +447,10 @@ function CardBackfillForm({
               <FormItem>
                 <FormLabel>Data da compra</FormLabel>
                 <FormControl>
-                  <DatePicker value={field.value} onValueChange={field.onChange} />
+                  <DatePicker
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -508,11 +525,13 @@ function CardBackfillForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {Array.from({ length: 119 }, (_, i) => i + 2).map((count) => (
-                      <SelectItem key={count} value={String(count)}>
-                        {count}x
-                      </SelectItem>
-                    ))}
+                    {Array.from({ length: 119 }, (_, i) => i + 2).map(
+                      (count) => (
+                        <SelectItem key={count} value={String(count)}>
+                          {count}x
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -545,7 +564,9 @@ function CardBackfillForm({
             name="settlementAccountId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Conta usada para pagar as faturas passadas</FormLabel>
+                <FormLabel>
+                  Conta usada para pagar as faturas passadas
+                </FormLabel>
                 <Select
                   value={field.value ?? ""}
                   onValueChange={field.onChange}
@@ -563,7 +584,7 @@ function CardBackfillForm({
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   As faturas das {watchedPaidCount} parcela(s) já paga(s) são
                   fechadas como pagas (histórico) — não afetam o saldo desta
                   conta.

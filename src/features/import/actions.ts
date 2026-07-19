@@ -113,7 +113,9 @@ export async function analyzeImportRows(
           .or(
             `account_id.eq.${parsed.data.contextId},credit_card_id.eq.${parsed.data.contextId}`,
           )
-      : Promise.resolve({ data: [] as { date: string; amount_cents: number }[] }),
+      : Promise.resolve({
+          data: [] as { date: string; amount_cents: number }[],
+        }),
   ]);
 
   const existingHashes = new Set(
@@ -152,6 +154,34 @@ async function reconcileBudgetAlertsForCurrentMonth(
   }
 }
 
+/**
+ * O banco não tem CHECK cruzando categoria×tipo (precisaria de join) e o Zod
+ * só valida UUID — sem esta guarda, uma categoria de receita numa linha de
+ * despesa entraria silenciosamente e poluiria os relatórios por categoria.
+ * A leitura passa pela RLS: categoria de outro usuário cai no "não existe".
+ */
+async function validateRowCategories(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rows: { categoryId: string; type: "income" | "expense" }[],
+): Promise<string | null> {
+  const uniqueIds = [...new Set(rows.map((r) => r.categoryId))];
+  const { data: categories, error } = await supabase
+    .from("categories")
+    .select("id, type")
+    .in("id", uniqueIds);
+  if (error) return "Não foi possível validar as categorias.";
+
+  const typeById = new Map((categories ?? []).map((c) => [c.id, c.type]));
+  for (const row of rows) {
+    const categoryType = typeById.get(row.categoryId);
+    if (!categoryType) return "Uma das categorias escolhidas não existe mais.";
+    if (categoryType !== row.type) {
+      return "Uma das linhas usa categoria de receita em despesa (ou o inverso). Revise as categorias.";
+    }
+  }
+  return null;
+}
+
 /** Confirma o import de extrato de CONTA (entrada a). */
 export async function importAccountEntries(
   input: unknown,
@@ -177,6 +207,9 @@ export async function importAccountEntries(
   if (allowed === false) {
     return fail("Muitas importações em pouco tempo. Aguarde e tente de novo.");
   }
+
+  const categoryError = await validateRowCategories(supabase, parsed.data.rows);
+  if (categoryError) return fail(categoryError);
 
   const { data: batch, error: batchError } = await supabase
     .from("import_batches")
@@ -215,7 +248,10 @@ export async function importAccountEntries(
       description: row.description,
       amount_cents: row.amountCents,
       date: row.date,
-      paid_at: row.status === "paid" ? new Date(`${row.date}T12:00:00`).toISOString() : null,
+      paid_at:
+        row.status === "paid"
+          ? new Date(`${row.date}T12:00:00`).toISOString()
+          : null,
       category_id: row.categoryId,
       affects_balance: row.affectsBalance,
       import_batch_id: batch.id,
@@ -228,7 +264,11 @@ export async function importAccountEntries(
     return fail("Não foi possível importar os lançamentos. Tente novamente.");
   }
 
-  await reconcileBudgetAlertsForCurrentMonth(supabase, user.id, parsed.data.rows);
+  await reconcileBudgetAlertsForCurrentMonth(
+    supabase,
+    user.id,
+    parsed.data.rows,
+  );
 
   revalidatePath("/transacoes");
   revalidatePath("/contas");
@@ -261,6 +301,15 @@ export async function importCardEntries(
   if (allowed === false) {
     return fail("Muitas importações em pouco tempo. Aguarde e tente de novo.");
   }
+
+  const categoryError = await validateRowCategories(
+    supabase,
+    parsed.data.rows.map((row) => ({
+      categoryId: row.categoryId,
+      type: "expense" as const, // fatura de cartão é sempre despesa (D5)
+    })),
+  );
+  if (categoryError) return fail(categoryError);
 
   // Fatura destino: dia 1 da competência escolhida sempre resolve para o
   // MESMO reference_month (compute_invoice_period nunca empurra o dia 1
@@ -325,7 +374,10 @@ export async function importCardEntries(
       description: row.description,
       amount_cents: row.amountCents,
       date: row.date,
-      paid_at: row.status === "paid" ? new Date(`${row.date}T12:00:00`).toISOString() : null,
+      paid_at:
+        row.status === "paid"
+          ? new Date(`${row.date}T12:00:00`).toISOString()
+          : null,
       category_id: row.categoryId,
       // Cartão nunca entra em v_account_balances (D5) — flag irrelevante
       // para saldo; a proteção acontece no PAGAMENTO da fatura (fork B2).
@@ -374,7 +426,11 @@ export async function undoImport(
     .maybeSingle();
   if (!batch) return fail("Importação não encontrada.");
 
-  if (batch.kind === "card_csv" && batch.credit_card_id && batch.reference_month) {
+  if (
+    batch.kind === "card_csv" &&
+    batch.credit_card_id &&
+    batch.reference_month
+  ) {
     const { data: invoice } = await supabase
       .from("credit_card_invoices")
       .select("status")

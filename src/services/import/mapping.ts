@@ -37,6 +37,17 @@ export function defaultColumnMapping(columnCount: number): ColumnMapping {
   };
 }
 
+/** Data existe de verdade no calendário? (31/02, 31/04… passam na regex mas
+ * derrubariam o INSERT atômico inteiro no Postgres com erro genérico.) */
+function isRealDate(year: number, month: number, day: number): boolean {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 /** "DD/MM/YYYY" | "DD/MM/YY" | "YYYY-MM-DD" → "YYYY-MM-DD", ou null. */
 export function parseDateFlexible(
   raw: string,
@@ -46,6 +57,7 @@ export function parseDateFlexible(
   if (format === "YMD") {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
     if (!m) return null;
+    if (!isRealDate(Number(m[1]), Number(m[2]), Number(m[3]))) return null;
     return `${m[1]}-${m[2]}-${m[3]}`;
   }
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(value);
@@ -56,9 +68,7 @@ export function parseDateFlexible(
   if (year.length === 2) {
     year = (Number(year) >= 70 ? "19" : "20") + year;
   }
-  const monthNum = Number(month);
-  const dayNum = Number(day);
-  if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) return null;
+  if (!isRealDate(Number(year), Number(month), Number(day))) return null;
   return `${year}-${month}-${day}`;
 }
 
@@ -73,10 +83,7 @@ export function parseMoneyFlexible(
   const negative = /^-/.test(value) || /^\(.*\)$/.test(value);
   // Alguns bancos (Nubank incluso) exportam negativo como "- 36,00", com
   // espaço depois do sinal — sem o trim() o dígito nunca bate a regex final.
-  value = value
-    .replace(/[()]/g, "")
-    .replace(/^-/, "")
-    .trim();
+  value = value.replace(/[()]/g, "").replace(/^-/, "").trim();
 
   if (decimalSeparator === ",") {
     value = value.replace(/\./g, "").replace(",", ".");
