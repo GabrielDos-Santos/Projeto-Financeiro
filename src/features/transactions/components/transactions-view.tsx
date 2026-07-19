@@ -60,6 +60,7 @@ export function TransactionsView({
   initialFirstPage,
   myUserId,
   memberNames,
+  memberOptions,
 }: {
   accounts: AccountOption[];
   categories: CategoryOption[];
@@ -69,6 +70,8 @@ export function TransactionsView({
   myUserId: string;
   /** `null` fora de uma casa (Fase 16) — a maioria dos usuários. */
   memberNames: Record<string, string> | null;
+  /** Membros para o filtro "por membro" — vazio se não for admin de casa. */
+  memberOptions: { id: string; name: string }[];
 }) {
   const [filters, setFilters] = React.useState<EntryFilters>({});
   const debouncedSearch = useDebounce(filters.search, 300);
@@ -189,6 +192,7 @@ export function TransactionsView({
             onSortChange={setSort}
             accounts={accounts}
             categories={categories}
+            memberOptions={memberOptions}
           />
         </div>
         <Button

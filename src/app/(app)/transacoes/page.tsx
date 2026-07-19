@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Upload } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
-import { getHouseholdMemberNames } from "@/features/households/queries";
+import { getHouseholdContext } from "@/features/households/queries";
 import {
   DEFAULT_ENTRIES_PAGE_SIZE,
   fetchEntriesPage,
@@ -21,11 +21,8 @@ export const metadata: Metadata = { title: "Transações" };
 
 export default async function TransacoesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const [accountsResult, categoriesResult, cardsResult, firstPage, memberNames] =
+  const [accountsResult, categoriesResult, cardsResult, firstPage, household] =
     await Promise.all([
       supabase
         .from("accounts")
@@ -43,7 +40,7 @@ export default async function TransacoesPage() {
         .eq("is_archived", false)
         .order("name"),
       fetchEntriesPage(supabase, {}, 1, DEFAULT_ENTRIES_PAGE_SIZE),
-      getHouseholdMemberNames(),
+      getHouseholdContext(),
     ]);
 
   const accounts: AccountOption[] = accountsResult.data ?? [];
@@ -54,6 +51,12 @@ export default async function TransacoesPage() {
     closingDay: card.closing_day,
     dueDay: card.due_day,
   }));
+
+  // Filtro por membro só faz sentido/funciona para o admin (membro comum só
+  // vê os próprios + contas compartilhadas via RLS — filtrar por outro daria
+  // lista vazia). Passa vazio para os demais → a UI nem renderiza o filtro.
+  const memberOptions =
+    household?.isAdmin && household.members.length > 1 ? household.members : [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,8 +75,9 @@ export default async function TransacoesPage() {
         categories={categories}
         cards={cards}
         initialFirstPage={firstPage}
-        myUserId={user?.id ?? ""}
-        memberNames={memberNames}
+        myUserId={household?.myUserId ?? ""}
+        memberNames={household?.memberNames ?? null}
+        memberOptions={memberOptions}
       />
     </div>
   );

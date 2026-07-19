@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Plus, Wallet } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
 import { getAccountsWithBalances } from "@/features/accounts/queries";
-import { getHouseholdMemberNames } from "@/features/households/queries";
+import { getHouseholdContext } from "@/features/households/queries";
 import { AccountCard } from "@/features/accounts/components/account-card";
 import { AccountFormDialog } from "@/features/accounts/components/account-form-dialog";
 import { AccountsSummary } from "@/features/accounts/components/accounts-summary";
@@ -14,19 +13,12 @@ import { Button } from "@/components/ui/button";
 export const metadata: Metadata = { title: "Contas" };
 
 export default async function ContasPage() {
-  const supabase = await createClient();
-  const [
-    accounts,
-    memberNames,
-    {
-      data: { user },
-    },
-  ] = await Promise.all([
+  const [accounts, household] = await Promise.all([
     getAccountsWithBalances(),
-    getHouseholdMemberNames(),
-    supabase.auth.getUser(),
+    getHouseholdContext(),
   ]);
-  const myUserId = user?.id ?? "";
+  const myUserId = household?.myUserId ?? "";
+  const memberNames = household?.memberNames ?? null;
   const active = accounts.filter((account) => !account.is_archived);
   const archived = accounts.filter((account) => account.is_archived);
 

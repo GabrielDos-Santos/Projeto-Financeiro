@@ -58,6 +58,7 @@ export function TransactionFilters({
   onSortChange,
   accounts,
   categories,
+  memberOptions,
 }: {
   filters: EntryFilters;
   onFiltersChange: (filters: EntryFilters) => void;
@@ -65,6 +66,8 @@ export function TransactionFilters({
   onSortChange: (sort: EntrySort) => void;
   accounts: AccountOption[];
   categories: CategoryOption[];
+  /** Vazio quando o usuário não é admin de uma casa — o filtro nem aparece. */
+  memberOptions: { id: string; name: string }[];
 }) {
   const hasFilters = Object.values(filters).some(Boolean);
   // Só os filtros "secundários" (o campo de busca fica sempre visível) —
@@ -74,6 +77,7 @@ export function TransactionFilters({
     filters.status,
     filters.accountId,
     filters.categoryId,
+    filters.userId,
     filters.from,
     filters.to,
   ].filter(Boolean).length;
@@ -180,6 +184,20 @@ export function TransactionFilters({
             </SelectItem>
           ))}
         </FilterSelect>
+        {/* Filtro por membro — só renderiza para o admin de uma casa (Fase 16). */}
+        {memberOptions.length > 0 && (
+          <FilterSelect
+            value={filters.userId}
+            onValueChange={(v) => set("userId", v)}
+            placeholder="Todos os membros"
+          >
+            {memberOptions.map((member) => (
+              <SelectItem key={member.id} value={member.id}>
+                {member.name}
+              </SelectItem>
+            ))}
+          </FilterSelect>
+        )}
         <div className="flex items-center gap-2">
           <DatePicker
             value={filters.from ?? ""}

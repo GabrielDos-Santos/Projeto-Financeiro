@@ -5,8 +5,10 @@ import { TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { formatMonthBR, todayISO } from "@/lib/dates";
 import {
   getHouseholdDashboard,
+  getHouseholdRecentEntries,
   getMyHousehold,
 } from "@/features/households/queries";
+import { HouseholdRecentEntries } from "@/features/households/components/household-recent-entries";
 import { formatCents } from "@/lib/money";
 import { IncomeExpenseBarChart } from "@/components/charts/income-expense-bar-chart";
 import { CategoryDonutChart } from "@/components/charts/category-donut-chart";
@@ -32,6 +34,16 @@ export default async function FamiliaDashboardPage() {
   const { summary, breakdown, series } = await getHouseholdDashboard(
     data.household.id,
   );
+
+  // Feed de movimentações linha a linha só para o admin (membro comum vê só
+  // agregados — decisão 83). Nomes vêm da lista de membros já carregada.
+  const memberNames = Object.fromEntries(
+    data.members.map((member) => [member.user_id, member.full_name]),
+  );
+  const recentEntries =
+    data.myRole === "admin"
+      ? await getHouseholdRecentEntries(memberNames)
+      : [];
 
   const currentMonthLabel = formatMonthBR(`${todayISO().slice(0, 7)}-01`);
   const incomePaid = summary?.income_paid_cents ?? 0;
@@ -157,6 +169,10 @@ export default async function FamiliaDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {data.myRole === "admin" && (
+        <HouseholdRecentEntries entries={recentEntries} />
+      )}
     </div>
   );
 }

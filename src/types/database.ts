@@ -1131,6 +1131,7 @@ export type Database = {
           affects_balance: boolean | null
           amount_cents: number | null
           category_id: string | null
+          created_at: string | null
           credit_card_id: string | null
           date: string | null
           description: string | null

@@ -199,15 +199,22 @@ export type RecentEntry = {
 };
 
 /**
- * Últimas movimentações (não canceladas) para o feed do dashboard. Limitado
- * a `date <= hoje`: `date` é a competência/vencimento, então sem esse corte
- * as parcelas AGENDADAS para meses/anos à frente (data futura) apareceriam no
- * topo de "As mais recentes" — o que não é uma movimentação recente, é uma
- * previsão. O dashboard tem, assim, sua própria ordenação (sempre o histórico
- * mais recente até hoje), independente do que estiver ordenado em /transacoes.
+ * Últimas movimentações (não canceladas) para o feed do dashboard PRINCIPAL.
+ * - **Só do próprio usuário** (`user_id = auth.uid()`): a RLS estendida da
+ *   Fase 16 faz o admin ver as linhas dos membros, mas o dashboard pessoal
+ *   não deve misturar lançamentos da família aqui — isso fica no dashboard
+ *   da família (`/familia/dashboard`), com o nome de cada membro.
+ * - Limitado a `date <= hoje`: `date` é competência/vencimento, então sem o
+ *   corte as parcelas AGENDADAS para o futuro apareceriam como "recentes".
+ * - Ordena por `created_at` (ordem de inserção) — "as mais recentes" de
+ *   verdade, consistente com o padrão novo de /transacoes.
  */
 export async function getRecentEntries(limit = 8): Promise<RecentEntry[]> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
 
   const [entries, categories] = await Promise.all([
     supabase
@@ -215,9 +222,10 @@ export async function getRecentEntries(limit = 8): Promise<RecentEntry[]> {
       .select(
         "id, description, date, amount_cents, type, transfer_direction, category_id",
       )
+      .eq("user_id", user.id)
       .neq("status", "cancelled")
       .lte("date", todayISO())
-      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(limit),
     supabase.from("categories").select("id, name, color, icon"),

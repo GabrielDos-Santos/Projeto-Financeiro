@@ -9,17 +9,22 @@ import type {
   HouseholdSummary,
 } from "./types";
 
+export type HouseholdContext = {
+  myUserId: string;
+  isAdmin: boolean;
+  members: { id: string; name: string }[];
+  /** `user_id → nome`, derivado de `members` — conveniência para os badges. */
+  memberNames: Record<string, string>;
+};
+
 /**
- * Mapa `user_id → nome` dos membros ATIVOS da casa do usuário logado, ou
- * `null` se ele não estiver em nenhuma — o caso comum (usuário solo), pra
- * quem nada na UI de transações/contas deve mudar. Usado para identificar de
- * quem é um lançamento/conta quando a RLS estendida da Fase 16 passa a
- * mostrar dado de outro membro (admin vendo tudo, ou conta compartilhada).
+ * Contexto da casa do usuário logado para as telas de domínio (transações,
+ * contas), ou `null` se ele não está em nenhuma — o caso comum (usuário
+ * solo), pra quem nada na UI muda. Usado para: identificar de quem é um
+ * lançamento/conta quando a RLS estendida (Fase 16) mostra dado de outro
+ * membro, e habilitar o filtro por membro (só para o admin).
  */
-export async function getHouseholdMemberNames(): Promise<Record<
-  string,
-  string
-> | null> {
+export async function getHouseholdContext(): Promise<HouseholdContext | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,24 +33,33 @@ export async function getHouseholdMemberNames(): Promise<Record<
 
   const { data: membership } = await supabase
     .from("household_members")
-    .select("household_id")
+    .select("household_id, role")
     .eq("user_id", user.id)
     .eq("status", "active")
     .limit(1)
     .maybeSingle();
   if (!membership) return null;
 
-  const { data: members } = await supabase
+  const { data: rows } = await supabase
     .from("household_members")
     .select("user_id, profiles:user_id(full_name)")
     .eq("household_id", membership.household_id)
-    .eq("status", "active");
+    .eq("status", "active")
+    .order("joined_at");
 
-  const names: Record<string, string> = {};
-  for (const member of members ?? []) {
-    names[member.user_id] = member.profiles?.full_name ?? "—";
-  }
-  return names;
+  const members = (rows ?? []).map((row) => ({
+    id: row.user_id,
+    name: row.profiles?.full_name ?? "—",
+  }));
+  const memberNames: Record<string, string> = {};
+  for (const member of members) memberNames[member.id] = member.name;
+
+  return {
+    myUserId: user.id,
+    isAdmin: membership.role === "admin",
+    members,
+    memberNames,
+  };
 }
 
 /**
@@ -203,4 +217,70 @@ export async function getHouseholdDashboard(householdId: string): Promise<{
     breakdown: breakdownResult.data ?? [],
     series: seriesResult.data ?? [],
   };
+}
+
+export type HouseholdRecentEntry = {
+  id: string;
+  description: string;
+  date: string;
+  amountCents: number;
+  type: "income" | "expense" | "transfer";
+  direction: "in" | "out" | null;
+  memberName: string;
+  categoryName: string | null;
+  categoryColor: string | null;
+  categoryIcon: string | null;
+};
+
+/**
+ * Feed "Últimas movimentações" do dashboard da FAMÍLIA, com o nome do membro
+ * dono de cada linha. **Só para o admin** (a página não chama para membro
+ * comum, que só vê agregados — decisão 83). Lê `v_entries` direto: a RLS
+ * estendida (`is_admin_over`) já expõe as linhas dos membros ao admin.
+ * Limitado a `date <= hoje` (mesma razão do feed pessoal: parcelas futuras
+ * não são "movimentação recente"); ordena por `created_at` (ordem de
+ * inserção, como o novo padrão de /transacoes).
+ */
+export async function getHouseholdRecentEntries(
+  memberNames: Record<string, string>,
+  limit = 8,
+): Promise<HouseholdRecentEntry[]> {
+  const supabase = await createClient();
+  const memberIds = Object.keys(memberNames);
+  if (memberIds.length === 0) return [];
+
+  const [entries, categories] = await Promise.all([
+    supabase
+      .from("v_entries")
+      .select(
+        "id, description, date, amount_cents, type, transfer_direction, category_id, user_id, created_at",
+      )
+      .in("user_id", memberIds)
+      .neq("status", "cancelled")
+      .lte("date", todayISO())
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(limit),
+    supabase.from("categories").select("id, name, color, icon"),
+  ]);
+
+  const categoryById = new Map((categories.data ?? []).map((c) => [c.id, c]));
+
+  return (entries.data ?? []).map((entry) => {
+    const category = entry.category_id
+      ? categoryById.get(entry.category_id)
+      : undefined;
+    return {
+      id: entry.id ?? "",
+      description: entry.description ?? "",
+      date: entry.date ?? "",
+      amountCents: entry.amount_cents ?? 0,
+      type: entry.type ?? "expense",
+      direction: entry.transfer_direction,
+      memberName: memberNames[entry.user_id ?? ""] ?? "—",
+      categoryName: category?.name ?? null,
+      categoryColor: category?.color ?? null,
+      categoryIcon: category?.icon ?? null,
+    };
+  });
 }
