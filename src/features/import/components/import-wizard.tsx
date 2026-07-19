@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 import { todayISO } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import {
   buildCategorySuggestionIndex,
   suggestCategory,
@@ -195,7 +196,10 @@ export function ImportWizard({
 
   function handleMappingNext() {
     if (!csvRows || !mapping) return;
-    const mapped = mapCsvRows(csvRows, mapping);
+    // O contexto muda a leitura do sinal no modo "valor com sinal": fatura de
+    // cartão tem positivo = compra e negativo = pagamento/estorno (pulado);
+    // extrato de conta é o inverso. Resolvido dentro de mapCsvRows.
+    const mapped = mapCsvRows(csvRows, mapping, mode);
     const accepted = mapped.filter(
       (row) => !row.skippedReason && row.dateISO && row.amountCents != null,
     );
@@ -318,7 +322,15 @@ export function ImportWizard({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent
+        className={cn(
+          "max-h-[90vh] overflow-y-auto",
+          // Revisão tem mais colunas (categoria, status, afeta saldo) — um
+          // diálogo largo evita precisar rolar pro lado pra achar a
+          // categoria de cada linha.
+          step === "review" ? "sm:max-w-4xl" : "max-w-2xl",
+        )}
+      >
         <DialogHeader>
           <DialogTitle>
             {mode === "account" ? "Importar extrato de conta" : "Importar fatura de cartão"}

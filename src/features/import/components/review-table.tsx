@@ -66,8 +66,8 @@ export function ReviewTable({
             </TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Descrição</TableHead>
-            {mode === "account" && <TableHead className="w-24">Tipo</TableHead>}
             <TableHead className="min-w-40">Categoria</TableHead>
+            {mode === "account" && <TableHead className="w-24">Tipo</TableHead>}
             <TableHead className="w-28">Status</TableHead>
             {mode === "account" && (
               <TableHead className="w-28">Afeta saldo</TableHead>
@@ -109,6 +109,28 @@ export function ReviewTable({
                   )}
                 </div>
               </TableCell>
+              <TableCell>
+                <Select
+                  value={row.categoryId}
+                  onValueChange={(value) =>
+                    onChange(updateRow(rows, row.key, { categoryId: value }))
+                  }
+                >
+                  <SelectTrigger className="h-8 w-full">
+                    <SelectValue placeholder="Escolha" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories
+                      .filter((c) => c.type === row.type)
+                      .map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          <DomainIcon name={category.icon} className="size-3.5" />
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </TableCell>
               {mode === "account" && (
                 <TableCell>
                   <Select
@@ -132,28 +154,6 @@ export function ReviewTable({
                   </Select>
                 </TableCell>
               )}
-              <TableCell>
-                <Select
-                  value={row.categoryId}
-                  onValueChange={(value) =>
-                    onChange(updateRow(rows, row.key, { categoryId: value }))
-                  }
-                >
-                  <SelectTrigger className="h-8 w-full">
-                    <SelectValue placeholder="Escolha" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories
-                      .filter((c) => c.type === row.type)
-                      .map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          <DomainIcon name={category.icon} className="size-3.5" />
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </TableCell>
               <TableCell>
                 <Select
                   value={row.status}

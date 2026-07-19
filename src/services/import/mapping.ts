@@ -71,7 +71,12 @@ export function parseMoneyFlexible(
   if (!value) return null;
 
   const negative = /^-/.test(value) || /^\(.*\)$/.test(value);
-  value = value.replace(/[()]/g, "").replace(/^-/, "");
+  // Alguns bancos (Nubank incluso) exportam negativo como "- 36,00", com
+  // espaço depois do sinal — sem o trim() o dígito nunca bate a regex final.
+  value = value
+    .replace(/[()]/g, "")
+    .replace(/^-/, "")
+    .trim();
 
   if (decimalSeparator === ",") {
     value = value.replace(/\./g, "").replace(",", ".");
@@ -97,10 +102,20 @@ export type MappedRow = {
   isCredit: boolean;
 };
 
-/** Aplica o mapeamento a todas as linhas cruas, devolvendo linhas tipadas. */
+/**
+ * Aplica o mapeamento a todas as linhas cruas, devolvendo linhas tipadas.
+ *
+ * `context` resolve a ambiguidade do modo "signed": num EXTRATO DE CONTA,
+ * positivo = dinheiro entrando (receita) e negativo = saindo (despesa); numa
+ * FATURA DE CARTÃO é o oposto — positivo = compra (despesa) e negativo =
+ * pagamento/estorno (crédito, pulado com aviso — decisão 22). Sem isso, um
+ * CSV do Nubank importado como cartão descartava as compras e aceitava os
+ * "Pagamento recebido" como despesa (bug real reportado pelo usuário).
+ */
 export function mapCsvRows(
   rawRows: string[][],
   mapping: ColumnMapping,
+  context: "account" | "card" = "account",
 ): MappedRow[] {
   const dataRows = mapping.hasHeaderRow ? rawRows.slice(1) : rawRows;
 
@@ -125,6 +140,11 @@ export function mapCsvRows(
           : null;
       if (parsed == null) {
         skippedReason = "invalid_amount";
+      } else if (context === "card") {
+        // Fatura: positivo = compra; negativo = pagamento/estorno (fora).
+        isCredit = parsed < 0;
+        if (isCredit) skippedReason = "credit_skipped";
+        else amountCents = Math.abs(parsed);
       } else {
         isCredit = parsed >= 0;
         amountCents = Math.abs(parsed);
