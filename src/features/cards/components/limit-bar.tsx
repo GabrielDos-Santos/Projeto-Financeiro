@@ -26,7 +26,7 @@ export function LimitBar({
           }}
         />
       </div>
-      <div className="flex justify-between text-xs text-muted-foreground">
+      <div className="flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
         <span>Usado {formatCents(usedCents)}</span>
         <span className={cn(overLimit && "font-medium text-destructive")}>
           {overLimit

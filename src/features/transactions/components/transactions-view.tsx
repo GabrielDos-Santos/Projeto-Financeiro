@@ -161,8 +161,12 @@ export function TransactionsView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
+      {/* Mobile: coluna (filtros em cima, botão full-width embaixo). O layout
+       * antigo (`min-w-0 flex-1` + botão na mesma linha) deixava o contêiner
+       * dos filtros encolher ALÉM do min-content da busca — o input vazava
+       * por baixo do botão "Novo lançamento" (overlap reportado em ~390px). */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 sm:flex-1">
           <TransactionFilters
             filters={filters}
             onFiltersChange={setFilters}
@@ -170,19 +174,22 @@ export function TransactionsView({
             categories={categories}
           />
         </div>
-        <Button onClick={() => setDrawer({ open: true })}>
+        <Button
+          onClick={() => setDrawer({ open: true })}
+          className="w-full sm:w-auto"
+        >
           <Plus /> Novo lançamento
         </Button>
       </div>
 
       {selectedCount > 0 && (
-        <div className="flex items-center justify-between gap-2 rounded-md border bg-secondary/50 px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-secondary/50 px-3 py-2 text-sm">
           <span>
             {selectedCount === 1
               ? "1 lançamento selecionado"
               : `${selectedCount} lançamentos selecionados`}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
@@ -239,8 +246,11 @@ export function TransactionsView({
               onEdit={handleEdit}
               onDuplicate={handleDuplicate}
             />
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-2 pt-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {/* Mobile: coluna centralizada (navegação em cima, contagem
+             * embaixo) — na linha única os dois grupos não cabem em ~390px
+             * e o wrap os deixava desalinhados. */}
+            <div className="flex flex-col-reverse items-center gap-3 border-t px-2 pt-3 sm:flex-row sm:flex-wrap sm:justify-between">
+              <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
                 <span>Por página</span>
                 <Select
                   value={String(pageSize)}

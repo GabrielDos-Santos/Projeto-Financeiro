@@ -38,7 +38,12 @@ export default async function AppLayout({
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar user={{ name, email, avatarUrl: profile?.avatar_url }} />
-        <main className="flex-1 p-4 pb-24 md:p-6 md:pb-6">{children}</main>
+        {/* overflow-x-hidden (Fase 15): nenhum elemento filho pode alargar a
+         * página no mobile — qualquer overflow residual é cortado em vez de
+         * criar rolagem/zoom horizontal da página inteira. */}
+        <main className="flex-1 overflow-x-hidden p-4 pb-24 md:p-6 md:pb-6">
+          {children}
+        </main>
       </div>
       <MobileNav />
       <CommandPalette />

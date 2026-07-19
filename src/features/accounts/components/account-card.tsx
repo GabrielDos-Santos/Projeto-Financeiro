@@ -72,7 +72,11 @@ export function AccountCard({ account }: { account: AccountWithBalance }) {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-medium">{account.name}</p>
-            {isArchived && <Badge variant="outline">Arquivada</Badge>}
+            {isArchived && (
+              <Badge variant="outline" className="shrink-0">
+                Arquivada
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             {account.type ? ACCOUNT_TYPE_LABELS[account.type] : "—"}

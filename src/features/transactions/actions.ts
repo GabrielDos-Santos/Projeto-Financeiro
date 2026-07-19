@@ -291,19 +291,38 @@ export async function createCardPurchase(
     return fail("Não foi possível abrir a fatura do cartão. Tente novamente.");
   }
 
+  // Compra retroativa cuja fatura JÁ foi paga (ex.: compra de meses atrás
+  // lançada só agora): sem esta checagem a linha nasceria `pending` e
+  // ficaria PRA SEMPRE assim — itens de cartão são travados (decisão 36), o
+  // status só muda pelo pagamento da fatura, que já aconteceu. Mesmo padrão
+  // "paga + histórica" do backfill (decisão 62): não afeta o saldo de novo
+  // (já refletido quando a fatura foi paga de verdade) mas conta no
+  // relatório da competência normalmente.
+  const { data: invoice } = await supabase
+    .from("credit_card_invoices")
+    .select("status, due_date")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  const paidAt =
+    invoice?.status === "paid"
+      ? new Date(`${invoice.due_date}T12:00:00`).toISOString()
+      : null;
+
   // Compra no cartão: expense + credit_card_id + invoice_id, sem conta (D5).
   // Nasce pendente; o pagamento da fatura propaga `paid`.
   const { error } = await supabase.from("transactions").insert({
     user_id: user.id,
     type: "expense",
-    status: "pending",
+    status: paidAt ? "paid" : "pending",
     description: parsed.data.description,
     notes: parsed.data.notes || null,
     amount_cents: parsed.data.amountCents,
     date: parsed.data.date,
+    paid_at: paidAt,
     credit_card_id: parsed.data.creditCardId,
     invoice_id: invoiceId,
     category_id: parsed.data.categoryId,
+    affects_balance: !paidAt,
   });
 
   if (error) {
@@ -388,12 +407,18 @@ export async function createCardInstallmentPurchase(
 
   const { data: invoices, error: invoicesError } = await supabase
     .from("credit_card_invoices")
-    .select("id, due_date")
+    .select("id, due_date, status")
     .in("id", invoiceIds);
   if (invoicesError || !invoices) {
     return fail("Não foi possível ler as faturas do cartão. Tente novamente.");
   }
   const dueDateById = new Map(invoices.map((inv) => [inv.id, inv.due_date]));
+  // Parcela cuja fatura JÁ está paga (compra retroativa lançada só agora):
+  // nasce paga + histórica, senão ficaria pendente pra sempre — cartão é
+  // travado (decisão 36), só o pagamento da fatura muda o status, e esse já
+  // aconteceu. Mesmo padrão do backfill (decisão 62), só que detectado
+  // automaticamente por fatura em vez de um `paidCount` informado à mão.
+  const invoiceStatusById = new Map(invoices.map((inv) => [inv.id, inv.status]));
 
   // Compra-mãe: na fatura do mês da compra (1ª parcela).
   const { data: parent, error: parentError } = await supabase
@@ -422,15 +447,23 @@ export async function createCardInstallmentPurchase(
   const { error: installmentsError } = await supabase
     .from("transaction_installments")
     .insert(
-      amounts.map((amountCents, k) => ({
-        transaction_id: parent.id,
-        user_id: user.id,
-        installment_number: k + 1,
-        amount_cents: amountCents,
-        due_date: dueDateById.get(invoiceIds[k]!)!,
-        status: "pending" as const,
-        invoice_id: invoiceIds[k],
-      })),
+      amounts.map((amountCents, k) => {
+        const dueDate = dueDateById.get(invoiceIds[k]!)!;
+        const isPaid = invoiceStatusById.get(invoiceIds[k]!) === "paid";
+        return {
+          transaction_id: parent.id,
+          user_id: user.id,
+          installment_number: k + 1,
+          amount_cents: amountCents,
+          due_date: dueDate,
+          status: (isPaid ? "paid" : "pending") as "paid" | "pending",
+          paid_at: isPaid
+            ? new Date(`${dueDate}T12:00:00`).toISOString()
+            : null,
+          invoice_id: invoiceIds[k],
+          affects_balance: !isPaid,
+        };
+      }),
     );
 
   if (installmentsError) {

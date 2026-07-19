@@ -44,7 +44,9 @@ export function ColorPicker({
     <div
       role="radiogroup"
       aria-label="Cor"
-      className={cn("grid grid-cols-9 gap-2", className)}
+      // flex-wrap em vez de grid-cols fixo (Fase 15): 9 colunas de largura
+      // fixa estouravam o diálogo em telas estreitas/zoom aumentado.
+      className={cn("flex flex-wrap gap-2", className)}
     >
       {DOMAIN_COLORS.map((color) => {
         const selected = value.toLowerCase() === color;

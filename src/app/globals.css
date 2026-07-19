@@ -119,4 +119,12 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Guard anti-"grid blowout" (Fase 15): itens de grid têm min-width auto
+   * por padrão — um filho largo (SVG de gráfico, texto sem quebra) alarga a
+   * coluna única do mobile e a página inteira estoura a tela. min-width: 0
+   * faz todo item respeitar a largura da coluna; utilities (min-w-*) ainda
+   * vencem esta regra quando alguém precisar do contrário. */
+  .grid > * {
+    min-width: 0;
+  }
 }

@@ -26,7 +26,9 @@ export function IconPicker({
       role="radiogroup"
       aria-label="Ícone"
       className={cn(
-        "grid max-h-40 grid-cols-8 gap-1 overflow-y-auto pr-1",
+        // auto-fill em vez de 8 colunas fixas (Fase 15): 8 × size-9 estoura
+        // o diálogo em telas estreitas; o número de colunas se adapta.
+        "grid max-h-40 grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1 overflow-y-auto pr-1",
         className,
       )}
     >
