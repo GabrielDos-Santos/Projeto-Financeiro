@@ -146,6 +146,43 @@ export async function updateTransaction(
   return ok(null);
 }
 
+/**
+ * Edição leve de categoria — a única coisa editável em itens "travados"
+ * (compra de cartão ou compra parcelada, decisão 36/33) sem reabrir o form
+ * inteiro: trocar tipo/conta/cartão desses itens violaria "um dono só" ou o
+ * vínculo com a fatura. `transactionId` é sempre o id da linha em
+ * `transactions` — para uma parcela, é o id da MÃE (categoria é uma só,
+ * compartilhada por todas as parcelas da compra; `entryTarget()` já resolve
+ * isso ao ler `entry.transaction_id`).
+ */
+export async function updateEntryCategory(
+  transactionId: unknown,
+  categoryId: unknown,
+): Promise<ActionResult<null>> {
+  const parsedId = transactionIdSchema.safeParse(transactionId);
+  if (!parsedId.success) return fail("Lançamento inválido.");
+  const parsedCategory = z.uuid("Categoria inválida").safeParse(categoryId);
+  if (!parsedCategory.success) return fail("Categoria inválida.");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("Sessão expirada. Entre novamente.");
+
+  const { error, count } = await supabase
+    .from("transactions")
+    .update({ category_id: parsedCategory.data }, { count: "exact" })
+    .eq("id", parsedId.data)
+    .is("transfer_group_id", null);
+
+  if (error) return fail("Não foi possível atualizar a categoria.");
+  if (count === 0) return fail("Lançamento não encontrado.");
+
+  revalidate();
+  return ok(null);
+}
+
 export async function createInstallmentPurchase(
   input: unknown,
 ): Promise<ActionResult<{ alert: BudgetAlert | null }>> {

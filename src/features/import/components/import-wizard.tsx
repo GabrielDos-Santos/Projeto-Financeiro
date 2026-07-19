@@ -9,6 +9,8 @@ import {
   ChevronRight,
   CreditCard,
   Loader2,
+  Maximize2,
+  Minimize2,
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -121,6 +123,10 @@ export function ImportWizard({
   const [rejectedCount, setRejectedCount] = React.useState(0);
   const [defaultCategoryId, setDefaultCategoryId] = React.useState("");
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+  // Descrições de extrato bancário são longas (Pix traz razão social +
+  // banco + agência/conta) — o usuário pode expandir a revisão pra ~80% da
+  // tela em vez de rolar dentro de um modal pequeno.
+  const [expanded, setExpanded] = React.useState(false);
 
   // Resultado
   const [result, setResult] = React.useState<{
@@ -139,6 +145,7 @@ export function ImportWizard({
     setRejectedCount(0);
     setDefaultCategoryId("");
     setResult(null);
+    setExpanded(false);
   }
 
   function handleClose(next: boolean) {
@@ -324,11 +331,16 @@ export function ImportWizard({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className={cn(
-          "max-h-[90vh] overflow-y-auto",
-          // Revisão tem mais colunas (categoria, status, afeta saldo) — um
-          // diálogo largo evita precisar rolar pro lado pra achar a
-          // categoria de cada linha.
-          step === "review" ? "sm:max-w-4xl" : "max-w-2xl",
+          "overflow-y-auto",
+          expanded
+            ? "max-h-[85vh] sm:max-w-[80vw]"
+            : cn(
+                "max-h-[90vh]",
+                // Revisão tem mais colunas (categoria, status, afeta saldo)
+                // — um diálogo largo evita precisar rolar pro lado pra
+                // achar a categoria de cada linha.
+                step === "review" ? "sm:max-w-4xl" : "max-w-2xl",
+              ),
         )}
       >
         <DialogHeader>

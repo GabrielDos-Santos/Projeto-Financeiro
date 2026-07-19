@@ -18,7 +18,12 @@ import { toast } from "sonner";
 
 import { formatDateBR } from "@/lib/dates";
 import { cn } from "@/lib/utils";
-import { deleteEntry, setEntryStatus, setInstallmentStatus } from "../actions";
+import {
+  deleteEntry,
+  setEntryStatus,
+  setInstallmentStatus,
+  updateEntryCategory,
+} from "../actions";
 import {
   signedAmountCents,
   type AccountOption,
@@ -37,6 +42,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -90,6 +102,7 @@ const EntryRow = React.memo(function EntryRow({
   entry,
   accountsById,
   categoriesById,
+  categories,
   cardsById,
   selected,
   onToggleSelect,
@@ -99,6 +112,7 @@ const EntryRow = React.memo(function EntryRow({
   entry: Entry;
   accountsById: Map<string, AccountOption>;
   categoriesById: Map<string, CategoryOption>;
+  categories: CategoryOption[];
   cardsById: Map<string, CardOption>;
   selected: boolean;
   onToggleSelect: (id: string) => void;
@@ -158,6 +172,17 @@ const EntryRow = React.memo(function EntryRow({
     });
   }
 
+  function handleCategoryChange(categoryId: string) {
+    startTransition(async () => {
+      const result = await updateEntryCategory(entry.transaction_id, categoryId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["entries"] });
+    });
+  }
+
   return (
     <TableRow className={cn(cancelled && "opacity-50")} data-state={selected ? "selected" : undefined}>
       <TableCell className="w-10">
@@ -193,6 +218,32 @@ const EntryRow = React.memo(function EntryRow({
             Transferência (
             {entry.transfer_direction === "out" ? "saída" : "entrada"})
           </span>
+        ) : locked ? (
+          // Único campo editável em item travado (decisão 33/36): trocar
+          // tipo/conta/cartão violaria "um dono só" ou o vínculo com a
+          // fatura, mas a categoria é segura de liberar.
+          <Select
+            value={entry.category_id ?? ""}
+            onValueChange={handleCategoryChange}
+            disabled={isPending}
+          >
+            <SelectTrigger
+              size="sm"
+              className="h-7 w-full border-transparent bg-transparent px-2 shadow-none hover:border-input"
+            >
+              <SelectValue placeholder="Escolha" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories
+                .filter((c) => c.type === entry.type)
+                .map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    <DomainIcon name={c.icon} className="size-3.5" />
+                    {c.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
         ) : category ? (
           <span className="flex items-center gap-1.5 text-sm">
             <span style={{ color: category.color ?? undefined }}>
@@ -387,6 +438,7 @@ export function TransactionsTable({
             entry={entry}
             accountsById={accountsById}
             categoriesById={categoriesById}
+            categories={categories}
             cardsById={cardsById}
             selected={selectedIds.has(entry.id!)}
             onToggleSelect={onToggleSelect}

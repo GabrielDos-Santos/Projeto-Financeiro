@@ -169,7 +169,9 @@ export async function importAccountEntries(
 
   const { data: allowed } = await supabase.rpc("check_rate_limit", {
     p_key: `${user.id}:import`,
-    p_max_hits: 10,
+    // TEMPORÁRIO: 50/h pro backfill inicial do usuário (histórico de várias
+    // faturas). Reverter para 10/h (decisão 58) depois do primeiro uso.
+    p_max_hits: 50,
     p_window: "1 hour",
   });
   if (allowed === false) {
@@ -251,7 +253,9 @@ export async function importCardEntries(
 
   const { data: allowed } = await supabase.rpc("check_rate_limit", {
     p_key: `${user.id}:import`,
-    p_max_hits: 10,
+    // TEMPORÁRIO: 50/h pro backfill inicial do usuário (histórico de várias
+    // faturas). Reverter para 10/h (decisão 58) depois do primeiro uso.
+    p_max_hits: 50,
     p_window: "1 hour",
   });
   if (allowed === false) {

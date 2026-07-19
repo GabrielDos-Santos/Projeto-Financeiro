@@ -26,6 +26,27 @@ async function readAsText(file: File, encoding: "utf-8" | "latin1") {
   return new TextDecoder(encoding).decode(buffer);
 }
 
+/**
+ * Corrige "mojibake" de UTF-8 já salvo como Latin-1 no arquivo de origem —
+ * não é um erro do decoder acima (esse arquivo decodifica limpo como UTF-8,
+ * sem `�`), é o PRÓPRIO CSV que já chega com "ção" gravado como "Ã§Ã£o"
+ * (visto num extrato do Nubank). Cada char do trecho corrompido é sempre um
+ * byte Latin-1 (≤ 0xFF) que, decodificado de novo como UTF-8, volta ao
+ * caractere original. Se algum char do arquivo passar de 0xFF (Unicode real,
+ * não Latin-1) ou a redecodificação falhar, devolve o texto original —
+ * mais seguro não tocar do que estragar um arquivo que já estava certo.
+ */
+function fixDoubleEncodedUtf8(text: string): string {
+  if (!/[ÃÂ]./.test(text)) return text;
+  if ([...text].some((ch) => ch.charCodeAt(0) > 0xff)) return text;
+  try {
+    const bytes = Uint8Array.from(text, (ch) => ch.charCodeAt(0));
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return text;
+  }
+}
+
 export async function parseCsvFile(file: File): Promise<CsvParseResult> {
   if (file.size > MAX_BYTES) {
     throw new CsvParseError("Arquivo maior que 1 MB.");
@@ -35,6 +56,7 @@ export async function parseCsvFile(file: File): Promise<CsvParseResult> {
   if (text.includes("�")) {
     text = await readAsText(file, "latin1");
   }
+  text = fixDoubleEncodedUtf8(text);
 
   const parsed = Papa.parse<string[]>(text, {
     skipEmptyLines: true,

@@ -18,6 +18,13 @@ const STOP_WORDS = new Set([
   "sa",
   "me",
   "eireli",
+  // "parcela"/"parc" aparecem em QUASE toda compra parcelada de fatura de
+  // cartão (ex.: "Loja X - Parcela 3/10") — sem isso, a palavra vira o voto
+  // dominante do índice (a maioria do histórico categorizado tende a ter
+  // *algo* parcelado) e a sugestão vira sempre a mesma categoria genérica,
+  // ignorando o nome real do estabelecimento (bug reportado pelo usuário).
+  "parcela",
+  "parc",
 ]);
 
 function normalize(text: string): string {
@@ -25,6 +32,9 @@ function normalize(text: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
+    // Sufixo de parcelamento ("- Parcela 3/10", "parcela 3 de 10") some
+    // antes de tokenizar — não é sobre o estabelecimento, é sobre a fatura.
+    .replace(/parcelas?\s*\d+\s*(\/|de)\s*\d+/g, " ")
     .replace(/[^a-z0-9\s]/g, " ")
     .trim();
 }
