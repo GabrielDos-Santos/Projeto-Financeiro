@@ -56,11 +56,17 @@ export function TransactionsView({
   categories,
   cards,
   initialFirstPage,
+  myUserId,
+  memberNames,
 }: {
   accounts: AccountOption[];
   categories: CategoryOption[];
   cards: CardOption[];
   initialFirstPage: EntriesPage;
+  /** Dono da sessão — para saber quando um lançamento é de outro membro. */
+  myUserId: string;
+  /** `null` fora de uma casa (Fase 16) — a maioria dos usuários. */
+  memberNames: Record<string, string> | null;
 }) {
   const [filters, setFilters] = React.useState<EntryFilters>({});
   const debouncedSearch = useDebounce(filters.search, 300);
@@ -245,6 +251,8 @@ export function TransactionsView({
               onToggleSelectAll={handleToggleSelectAll}
               onEdit={handleEdit}
               onDuplicate={handleDuplicate}
+              myUserId={myUserId}
+              memberNames={memberNames}
             />
             {/* Mobile: coluna centralizada (navegação em cima, contagem
              * embaixo) — na linha única os dois grupos não cabem em ~390px

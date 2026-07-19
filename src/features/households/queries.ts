@@ -10,6 +10,45 @@ import type {
 } from "./types";
 
 /**
+ * Mapa `user_id → nome` dos membros ATIVOS da casa do usuário logado, ou
+ * `null` se ele não estiver em nenhuma — o caso comum (usuário solo), pra
+ * quem nada na UI de transações/contas deve mudar. Usado para identificar de
+ * quem é um lançamento/conta quando a RLS estendida da Fase 16 passa a
+ * mostrar dado de outro membro (admin vendo tudo, ou conta compartilhada).
+ */
+export async function getHouseholdMemberNames(): Promise<Record<
+  string,
+  string
+> | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: membership } = await supabase
+    .from("household_members")
+    .select("household_id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (!membership) return null;
+
+  const { data: members } = await supabase
+    .from("household_members")
+    .select("user_id, profiles:user_id(full_name)")
+    .eq("household_id", membership.household_id)
+    .eq("status", "active");
+
+  const names: Record<string, string> = {};
+  for (const member of members ?? []) {
+    names[member.user_id] = member.profiles?.full_name ?? "—";
+  }
+  return names;
+}
+
+/**
  * Casa do usuário logado (v1: no máximo uma), com membros, convites
  * pendentes (RLS: só o admin enxerga — para membro vem vazio), contas
  * compartilhadas e as contas de membros que o admin ainda pode compartilhar.

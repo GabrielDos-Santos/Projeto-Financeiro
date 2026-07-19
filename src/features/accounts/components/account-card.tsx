@@ -25,16 +25,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DomainIcon } from "@/components/shared/domain-icon";
+import { MemberBadge } from "@/components/shared/member-badge";
 import { MoneyDisplay } from "@/components/shared/money-display";
+import { ownerName } from "@/lib/households";
 import { cn } from "@/lib/utils";
 
-export function AccountCard({ account }: { account: AccountWithBalance }) {
+export function AccountCard({
+  account,
+  myUserId,
+  memberNames,
+}: {
+  account: AccountWithBalance;
+  myUserId: string;
+  memberNames: Record<string, string> | null;
+}) {
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
 
   const isArchived = Boolean(account.is_archived);
   const color = account.color ?? "#71717a";
+  const owner = ownerName(account.user_id, myUserId, memberNames);
+  // Escrita continua "own rows" (decisão 85) — esconde ações que a RLS
+  // rejeitaria de qualquer forma (conta vista via admin/compartilhamento).
+  const isMine = owner == null;
 
   function handleArchiveToggle() {
     startTransition(async () => {
@@ -78,8 +92,9 @@ export function AccountCard({ account }: { account: AccountWithBalance }) {
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             {account.type ? ACCOUNT_TYPE_LABELS[account.type] : "—"}
+            {owner && <MemberBadge name={owner} />}
           </p>
           <MoneyDisplay
             cents={account.balance_cents ?? 0}
@@ -87,51 +102,57 @@ export function AccountCard({ account }: { account: AccountWithBalance }) {
             className="block text-lg font-semibold"
           />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="-mt-1 -mr-2 text-muted-foreground"
-              aria-label={`Ações da conta ${account.name}`}
-            >
-              <MoreVertical />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-              <Pencil /> Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={handleArchiveToggle}
-              disabled={isPending}
-            >
-              {isArchived ? (
-                <>
-                  <ArchiveRestore /> Reativar
-                </>
-              ) : (
-                <>
-                  <Archive /> Arquivar
-                </>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => setDeleteOpen(true)}
-            >
-              <Trash2 /> Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Escrita é "own rows" (decisão 85) — conta vista via RLS estendida
+         * (admin/compartilhamento) não tem editar/arquivar/excluir aqui. */}
+        {isMine && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="-mt-1 -mr-2 text-muted-foreground"
+                aria-label={`Ações da conta ${account.name}`}
+              >
+                <MoreVertical />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                <Pencil /> Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={handleArchiveToggle}
+                disabled={isPending}
+              >
+                {isArchived ? (
+                  <>
+                    <ArchiveRestore /> Reativar
+                  </>
+                ) : (
+                  <>
+                    <Archive /> Arquivar
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => setDeleteOpen(true)}
+              >
+                <Trash2 /> Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </CardContent>
 
-      <AccountFormDialog
-        account={account}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
+      {isMine && (
+        <AccountFormDialog
+          account={account}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+        />
+      )}
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}

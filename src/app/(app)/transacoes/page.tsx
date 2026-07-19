@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Upload } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
+import { getHouseholdMemberNames } from "@/features/households/queries";
 import {
   DEFAULT_ENTRIES_PAGE_SIZE,
   fetchEntriesPage,
@@ -20,8 +21,11 @@ export const metadata: Metadata = { title: "Transações" };
 
 export default async function TransacoesPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const [accountsResult, categoriesResult, cardsResult, firstPage] =
+  const [accountsResult, categoriesResult, cardsResult, firstPage, memberNames] =
     await Promise.all([
       supabase
         .from("accounts")
@@ -39,6 +43,7 @@ export default async function TransacoesPage() {
         .eq("is_archived", false)
         .order("name"),
       fetchEntriesPage(supabase, {}, 1, DEFAULT_ENTRIES_PAGE_SIZE),
+      getHouseholdMemberNames(),
     ]);
 
   const accounts: AccountOption[] = accountsResult.data ?? [];
@@ -67,6 +72,8 @@ export default async function TransacoesPage() {
         categories={categories}
         cards={cards}
         initialFirstPage={firstPage}
+        myUserId={user?.id ?? ""}
+        memberNames={memberNames}
       />
     </div>
   );

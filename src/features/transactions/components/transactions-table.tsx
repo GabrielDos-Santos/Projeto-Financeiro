@@ -13,10 +13,12 @@ import {
   Pencil,
   RotateCcw,
   Trash2,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { formatDateBR } from "@/lib/dates";
+import { ownerName } from "@/lib/households";
 import { cn } from "@/lib/utils";
 import {
   deleteEntry,
@@ -59,6 +61,7 @@ import {
 } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DomainIcon } from "@/components/shared/domain-icon";
+import { MemberBadge } from "@/components/shared/member-badge";
 import { MoneyDisplay } from "@/components/shared/money-display";
 
 export function entryTarget(entry: Entry) {
@@ -392,6 +395,8 @@ function EntryCard({
   onToggleSelect,
   onEdit,
   onDuplicate,
+  myUserId,
+  memberNames,
 }: {
   entry: Entry;
   accountsById: Map<string, AccountOption>;
@@ -402,10 +407,13 @@ function EntryCard({
   onToggleSelect: (id: string) => void;
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
+  myUserId: string;
+  memberNames: Record<string, string> | null;
 }) {
   const state = useEntryRowState(entry, accountsById, categoriesById, cardsById);
   const { isPending, cancelled, category, account, card, locked, handleCategoryChange } =
     state;
+  const owner = ownerName(entry.user_id, myUserId, memberNames);
 
   return (
     <div
@@ -471,7 +479,8 @@ function EntryCard({
               onCategoryChange={handleCategoryChange}
             />
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            {owner && <MemberBadge name={owner} />}
             <StatusBadge status={entry.status} />
             {entry.affects_balance === false && <HistoricalBadge />}
           </div>
@@ -501,6 +510,8 @@ const EntryRow = React.memo(function EntryRow({
   onToggleSelect,
   onEdit,
   onDuplicate,
+  myUserId,
+  memberNames,
 }: {
   entry: Entry;
   accountsById: Map<string, AccountOption>;
@@ -511,10 +522,13 @@ const EntryRow = React.memo(function EntryRow({
   onToggleSelect: (id: string) => void;
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
+  myUserId: string;
+  memberNames: Record<string, string> | null;
 }) {
   const state = useEntryRowState(entry, accountsById, categoriesById, cardsById);
   const { cancelled, category, account, card, locked, handleCategoryChange, isPending } =
     state;
+  const owner = ownerName(entry.user_id, myUserId, memberNames);
 
   return (
     <TableRow
@@ -558,14 +572,22 @@ const EntryRow = React.memo(function EntryRow({
         />
       </TableCell>
       <TableCell className="text-sm text-muted-foreground">
-        {card ? (
-          <span className="flex items-center gap-1.5">
-            <CreditCard className="size-3.5" aria-hidden />
-            {card.name}
-          </span>
-        ) : (
-          (account?.name ?? "—")
-        )}
+        <div className="flex flex-col gap-0.5">
+          {card ? (
+            <span className="flex items-center gap-1.5">
+              <CreditCard className="size-3.5" aria-hidden />
+              {card.name}
+            </span>
+          ) : (
+            (account?.name ?? "—")
+          )}
+          {owner && (
+            <span className="flex items-center gap-1 text-xs">
+              <User className="size-3" aria-hidden />
+              {owner}
+            </span>
+          )}
+        </div>
       </TableCell>
       <TableCell>
         <div className="flex flex-wrap items-center gap-1">
@@ -605,6 +627,8 @@ export function TransactionsTable({
   onToggleSelectAll,
   onEdit,
   onDuplicate,
+  myUserId,
+  memberNames,
 }: {
   entries: Entry[];
   accounts: AccountOption[];
@@ -615,6 +639,8 @@ export function TransactionsTable({
   onToggleSelectAll: (checked: boolean) => void;
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
+  myUserId: string;
+  memberNames: Record<string, string> | null;
 }) {
   const accountsById = React.useMemo(
     () => new Map(accounts.map((a) => [a.id, a])),
@@ -673,6 +699,8 @@ export function TransactionsTable({
               onToggleSelect={onToggleSelect}
               onEdit={onEdit}
               onDuplicate={onDuplicate}
+              myUserId={myUserId}
+              memberNames={memberNames}
             />
           ))}
         </TableBody>
@@ -699,6 +727,8 @@ export function TransactionsTable({
             onToggleSelect={onToggleSelect}
             onEdit={onEdit}
             onDuplicate={onDuplicate}
+            myUserId={myUserId}
+            memberNames={memberNames}
           />
         ))}
       </div>
