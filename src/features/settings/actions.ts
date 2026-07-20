@@ -78,6 +78,7 @@ export async function updatePreferences(
       locale: parsed.data.locale,
       notify_budget_alerts: parsed.data.notifyBudgetAlerts,
       notify_invoice_due: parsed.data.notifyInvoiceDue,
+      notify_loan_due: parsed.data.notifyLoanDue,
     })
     .eq("user_id", user.id);
   if (error) {

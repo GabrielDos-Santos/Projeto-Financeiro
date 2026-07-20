@@ -21,6 +21,7 @@ export const preferencesFormSchema = z.object({
   locale: z.enum(LOCALE_OPTIONS, "Idioma inválido"),
   notifyBudgetAlerts: z.boolean(),
   notifyInvoiceDue: z.boolean(),
+  notifyLoanDue: z.boolean(),
 });
 
 export type PreferencesFormInput = z.infer<typeof preferencesFormSchema>;

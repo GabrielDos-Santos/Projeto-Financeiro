@@ -774,6 +774,44 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_limits: {
         Row: {
           hit_at: string
@@ -891,6 +929,7 @@ export type Database = {
           locale: string
           notify_budget_alerts: boolean
           notify_invoice_due: boolean
+          notify_loan_due: boolean
           theme: string
           updated_at: string
           user_id: string
@@ -900,6 +939,7 @@ export type Database = {
           locale?: string
           notify_budget_alerts?: boolean
           notify_invoice_due?: boolean
+          notify_loan_due?: boolean
           theme?: string
           updated_at?: string
           user_id: string
@@ -909,6 +949,7 @@ export type Database = {
           locale?: string
           notify_budget_alerts?: boolean
           notify_invoice_due?: boolean
+          notify_loan_due?: boolean
           theme?: string
           updated_at?: string
           user_id?: string
@@ -1374,6 +1415,7 @@ export type Database = {
         | "invoice_due"
         | "goal_reached"
         | "system"
+        | "loan_due"
       recurrence_freq: "daily" | "weekly" | "monthly" | "yearly"
       transaction_status: "paid" | "pending" | "cancelled"
       transaction_type: "income" | "expense" | "transfer"
@@ -1519,6 +1561,7 @@ export const Constants = {
         "invoice_due",
         "goal_reached",
         "system",
+        "loan_due",
       ],
       recurrence_freq: ["daily", "weekly", "monthly", "yearly"],
       transaction_status: ["paid", "pending", "cancelled"],

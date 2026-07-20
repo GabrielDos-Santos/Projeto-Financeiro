@@ -8,6 +8,7 @@ import { InstallAppSection } from "@/features/settings/components/install-app-se
 import { PasswordForm } from "@/features/settings/components/password-form";
 import { PreferencesForm } from "@/features/settings/components/preferences-form";
 import { ProfileForm } from "@/features/settings/components/profile-form";
+import { PushNotificationsSection } from "@/features/settings/components/push-notifications-section";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -36,6 +37,7 @@ export default async function ConfiguracoesPage() {
         <TabsContent value="preferencias" className="mt-4 flex flex-col gap-4">
           <PreferencesForm settings={settings} />
           <InstallAppSection />
+          <PushNotificationsSection />
         </TabsContent>
         <TabsContent value="seguranca" className="mt-4">
           <PasswordForm />

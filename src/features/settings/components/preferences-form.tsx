@@ -53,6 +53,7 @@ export function PreferencesForm({ settings }: { settings: Settings }) {
         : "pt-BR",
       notifyBudgetAlerts: settings.notify_budget_alerts,
       notifyInvoiceDue: settings.notify_invoice_due,
+      notifyLoanDue: settings.notify_loan_due,
     },
   });
 
@@ -159,7 +160,29 @@ export function PreferencesForm({ settings }: { settings: Settings }) {
                   <div className="space-y-0.5">
                     <FormLabel>Vencimento de fatura</FormLabel>
                     <p className="text-xs text-muted-foreground">
-                      Avisar quando uma fatura estiver perto de vencer.
+                      Avisar alguns dias antes de uma fatura vencer (sino e
+                      notificação no celular, se ativada abaixo).
+                    </p>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notifyLoanDue"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-md border px-3 py-2.5">
+                  <div className="space-y-0.5">
+                    <FormLabel>Vencimento de empréstimo</FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Avisar alguns dias antes de uma parcela de empréstimo
+                      vencer.
                     </p>
                   </div>
                   <FormControl>
