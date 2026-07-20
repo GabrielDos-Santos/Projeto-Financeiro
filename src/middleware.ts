@@ -8,6 +8,7 @@ const PROTECTED_PREFIXES = [
   "/contas",
   "/categorias",
   "/cartoes",
+  "/emprestimos",
   "/recorrentes",
   "/orcamentos",
   "/metas",

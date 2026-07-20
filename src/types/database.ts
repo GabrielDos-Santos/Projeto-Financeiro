@@ -636,6 +636,79 @@ export type Database = {
           },
         ]
       }
+      loans: {
+        Row: {
+          contract_date: string
+          created_at: string
+          disbursement_transaction_id: string | null
+          id: string
+          installments_total: number
+          interest_rate: number | null
+          lender: string | null
+          name: string
+          notes: string | null
+          parent_transaction_id: string
+          principal_cents: number
+          total_cents: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contract_date: string
+          created_at?: string
+          disbursement_transaction_id?: string | null
+          id?: string
+          installments_total: number
+          interest_rate?: number | null
+          lender?: string | null
+          name: string
+          notes?: string | null
+          parent_transaction_id: string
+          principal_cents: number
+          total_cents: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contract_date?: string
+          created_at?: string
+          disbursement_transaction_id?: string | null
+          id?: string
+          installments_total?: number
+          interest_rate?: number | null
+          lender?: string | null
+          name?: string
+          notes?: string | null
+          parent_transaction_id?: string
+          principal_cents?: number
+          total_cents?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loans_disbursement_transaction_id_fkey"
+            columns: ["disbursement_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_parent_transaction_id_fkey"
+            columns: ["parent_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null

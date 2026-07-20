@@ -2,6 +2,7 @@ import {
   ArrowLeftRight,
   BarChart3,
   CreditCard,
+  HandCoins,
   LayoutDashboard,
   PiggyBank,
   Repeat,
@@ -26,6 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/contas", label: "Contas", icon: Wallet },
   { href: "/categorias", label: "Categorias", icon: Tags },
   { href: "/cartoes", label: "Cartões", icon: CreditCard },
+  { href: "/emprestimos", label: "Empréstimos", icon: HandCoins },
   { href: "/recorrentes", label: "Recorrentes", icon: Repeat },
   { href: "/orcamentos", label: "Orçamentos", icon: PiggyBank },
   { href: "/metas", label: "Metas", icon: Target },
@@ -50,11 +52,12 @@ export const MOBILE_NAV_ITEMS: NavItem[] = [
 /** Rotas fora da bottom bar — aparecem no menu "Mais" do mobile (Fase 16). */
 export const MOBILE_OVERFLOW_ITEMS: NavItem[] = [
   NAV_ITEMS[3]!, // Categorias
-  NAV_ITEMS[5]!, // Recorrentes
-  NAV_ITEMS[6]!, // Orçamentos
-  NAV_ITEMS[7]!, // Metas
-  NAV_ITEMS[8]!, // Relatórios
-  NAV_ITEMS[9]!, // Família
+  NAV_ITEMS[5]!, // Empréstimos
+  NAV_ITEMS[6]!, // Recorrentes
+  NAV_ITEMS[7]!, // Orçamentos
+  NAV_ITEMS[8]!, // Metas
+  NAV_ITEMS[9]!, // Relatórios
+  NAV_ITEMS[10]!, // Família
   SETTINGS_ITEM,
 ];
 

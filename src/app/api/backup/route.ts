@@ -53,6 +53,7 @@ export async function GET() {
     budgets,
     goals,
     attachments,
+    loans,
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase
@@ -79,6 +80,7 @@ export async function GET() {
         "id, transaction_id, file_name, mime_type, size_bytes, created_at",
       )
       .eq("user_id", user.id),
+    supabase.from("loans").select("*").eq("user_id", user.id),
   ]);
 
   const backup = {
@@ -95,6 +97,7 @@ export async function GET() {
     budgets: budgets.data ?? [],
     goals: goals.data ?? [],
     attachments: attachments.data ?? [],
+    loans: loans.data ?? [],
   };
 
   return new NextResponse(JSON.stringify(backup, null, 2), {
