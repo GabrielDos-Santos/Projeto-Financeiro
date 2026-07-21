@@ -62,6 +62,7 @@ export function TransactionsView({
   ownCards,
   initialFirstPage,
   myUserId,
+  isAdmin,
   memberNames,
   memberOptions,
 }: {
@@ -76,6 +77,9 @@ export function TransactionsView({
   initialFirstPage: EntriesPage;
   /** Dono da sessão — para saber quando um lançamento é de outro membro. */
   myUserId: string;
+  /** Admin de casa: vê tudo + filtra por membro. Membro comum fica preso ao
+   * próprio `user_id` (senão veria lançamentos de contas compartilhadas). */
+  isAdmin: boolean;
   /** `null` fora de uma casa (Fase 16) — a maioria dos usuários. */
   memberNames: Record<string, string> | null;
   /** Membros para o filtro "por membro" — vazio se não for admin de casa. */
@@ -83,9 +87,15 @@ export function TransactionsView({
 }) {
   const [filters, setFilters] = React.useState<EntryFilters>({});
   const debouncedSearch = useDebounce(filters.search, 300);
+  // Filtros sempre aplicados: membro comum trancado no próprio `user_id`.
+  // Vem por ÚLTIMO no merge para que nem um filtro manual o sobrescreva.
+  const baseFilters = React.useMemo<EntryFilters>(
+    () => (isAdmin ? {} : { userId: myUserId }),
+    [isAdmin, myUserId],
+  );
   const effectiveFilters = React.useMemo(
-    () => ({ ...filters, search: debouncedSearch }),
-    [filters, debouncedSearch],
+    () => ({ ...filters, search: debouncedSearch, ...baseFilters }),
+    [filters, debouncedSearch, baseFilters],
   );
 
   const [page, setPage] = React.useState(1);
@@ -133,6 +143,7 @@ export function TransactionsView({
     pageSize,
     sort,
     initialFirstPage,
+    baseFilters,
   );
   const entries = React.useMemo(() => query.data?.entries ?? [], [query.data]);
   const totalCount = query.data?.totalCount ?? 0;
@@ -182,7 +193,14 @@ export function TransactionsView({
     });
   }
 
-  const hasFilters = Object.values(effectiveFilters).some(Boolean);
+  // Só os filtros que o USUÁRIO escolheu contam para o estado vazio — o
+  // `baseFilters` (user_id do membro comum) é sempre presente e não deve
+  // fazer a tela dizer "ajuste os filtros" quando ele simplesmente não tem
+  // lançamentos.
+  const hasFilters = Object.values({
+    ...filters,
+    search: debouncedSearch,
+  }).some(Boolean);
   const selectedCount = selectedIds.size;
 
   return (

@@ -27,6 +27,12 @@ export default async function TransacoesPage() {
   } = await supabase.auth.getUser();
   const myUserId = user?.id ?? "";
 
+  // O contexto de casa decide o ESCOPO da lista (admin vê tudo, membro só o
+  // seu), então precisa vir antes do fetch da primeira página. É barato (dois
+  // SELECTs pequenos); as demais listas rodam em paralelo logo abaixo.
+  const household = await getHouseholdContext();
+  const isAdmin = household?.isAdmin ?? false;
+
   // Estas listas têm DOIS papéis nesta tela (decisão 96):
   //  • exibição — resolver nome/ícone da conta/cartão/categoria de cada linha,
   //    inclusive as de outro membro que a RLS da Fase 16 mostra ao admin;
@@ -34,7 +40,7 @@ export default async function TransacoesPage() {
   //    usuário, senão ele lançaria na conta/categoria de outra pessoa (e as
   //    categorias apareceriam duplicadas, já que cada membro tem as suas 14).
   // Por isso busca tudo o que é visível e deriva os subconjuntos "own*".
-  const [accountsResult, categoriesResult, cardsResult, firstPage, household] =
+  const [accountsResult, categoriesResult, cardsResult, firstPage] =
     await Promise.all([
       supabase
         .from("accounts")
@@ -51,8 +57,15 @@ export default async function TransacoesPage() {
         .select("id, name, closing_day, due_day, user_id")
         .eq("is_archived", false)
         .order("name"),
-      fetchEntriesPage(supabase, {}, 1, DEFAULT_ENTRIES_PAGE_SIZE),
-      getHouseholdContext(),
+      // Membro comum vê SÓ o que é dele nesta lista — a RLS (Fase 16) também
+      // deixaria passar lançamentos de contas COMPARTILHADAS de outros membros,
+      // o que não é o esperado aqui. O admin vê tudo e filtra por membro.
+      fetchEntriesPage(
+        supabase,
+        isAdmin ? {} : { userId: myUserId },
+        1,
+        DEFAULT_ENTRIES_PAGE_SIZE,
+      ),
     ]);
 
   const accounts: AccountOption[] = (accountsResult.data ?? []).map(
@@ -110,6 +123,7 @@ export default async function TransacoesPage() {
         ownCards={ownCards}
         initialFirstPage={firstPage}
         myUserId={myUserId}
+        isAdmin={isAdmin}
         memberNames={household?.memberNames ?? null}
         memberOptions={memberOptions}
       />

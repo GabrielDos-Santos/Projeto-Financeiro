@@ -485,12 +485,18 @@ function EntryCard({
               onCategoryChange={handleCategoryChange}
             />
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-            {owner && <MemberBadge name={owner} />}
+          <div className="flex shrink-0 items-center gap-1">
             <StatusBadge status={entry.status} />
             {entry.affects_balance === false && <HistoricalBadge />}
           </div>
         </div>
+        {/* Nome do membro em linha própria: junto da categoria, um nome longo
+         * ("Fulano de Tal Sobrenome") não encolhe e sobrepunha o rótulo. */}
+        {owner && (
+          <div className="flex min-w-0">
+            <MemberBadge name={owner} />
+          </div>
+        )}
       </div>
       <EntryActionsMenu
         entry={entry}

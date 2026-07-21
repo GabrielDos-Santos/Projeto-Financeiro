@@ -7,10 +7,10 @@ export function MemberBadge({ name }: { name: string }) {
   return (
     <Badge
       variant="outline"
-      className="gap-1 border-dashed text-muted-foreground"
+      className="max-w-full gap-1 border-dashed text-muted-foreground"
     >
-      <User className="size-3" aria-hidden />
-      {name}
+      <User className="size-3 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{name}</span>
     </Badge>
   );
 }
