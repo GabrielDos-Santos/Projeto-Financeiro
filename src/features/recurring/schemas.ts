@@ -37,6 +37,8 @@ export const recurringFormSchema = z
     startDate: dateOnly,
     // A UI usa null quando não há fim (nunca ""); o DatePicker/limpar cuidam disso.
     endDate: dateOnly.nullable(),
+    /** Fora da projeção de saldo (`/projecao`) — não afeta mais nada. */
+    excludeFromProjection: z.boolean(),
   })
   .superRefine((data, ctx) => {
     if (data.ownerKind === "account") {

@@ -36,3 +36,8 @@ export function formatDateLongBR(iso: string): string {
 export function formatMonthBR(iso: string): string {
   return format(parseDateOnly(iso), "MMMM 'de' yyyy", { locale: ptBR });
 }
+
+/** "2026-08-01" → "ago/26" (cabeçalho de coluna da projeção). */
+export function formatMonthShortBR(iso: string): string {
+  return format(parseDateOnly(iso), "MMM/yy", { locale: ptBR });
+}

@@ -36,6 +36,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -69,6 +70,7 @@ function defaults(): RecurringFormInput {
     intervalCount: 1,
     startDate: todayISO(),
     endDate: null,
+    excludeFromProjection: false,
   };
 }
 
@@ -119,6 +121,7 @@ export function RecurringFormDialog({
             intervalCount: recurring.interval_count,
             startDate: recurring.start_date,
             endDate: recurring.end_date,
+            excludeFromProjection: recurring.exclude_from_projection ?? false,
           }
         : defaults(),
     );
@@ -441,6 +444,32 @@ export function RecurringFormDialog({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="excludeFromProjection"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-3 rounded-md border p-3">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="font-normal">
+                      Não incluir na projeção
+                    </FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      A recorrência continua gerando lançamentos normalmente —
+                      só deixa de contar no saldo previsto de /projeção.
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
 
             {startDate && intervalCount >= 1 && (
               <NextOccurrencesPreview

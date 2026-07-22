@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "shadcn-ui": {
+      "source": "nexu-io/open-design",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn-ui/SKILL.md",
+      "computedHash": "96f4b801b6f1041b2b0f794207852e39fbe6baa042a017f414acf74408c8d85f"
+    },
+    "tailwindcss-development": {
+      "source": "coollabsio/coolify",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/tailwindcss-development/SKILL.md",
+      "computedHash": "945a5cfceeb61297107338b68e51ff4db0c4d4ad1e57ec63a751646c99488456"
+    }
+  }
+}

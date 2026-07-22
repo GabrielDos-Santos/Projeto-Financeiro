@@ -839,6 +839,7 @@ export type Database = {
           credit_card_id: string | null
           description: string
           end_date: string | null
+          exclude_from_projection: boolean
           frequency: Database["public"]["Enums"]["recurrence_freq"]
           id: string
           interval_count: number
@@ -857,6 +858,7 @@ export type Database = {
           credit_card_id?: string | null
           description: string
           end_date?: string | null
+          exclude_from_projection?: boolean
           frequency: Database["public"]["Enums"]["recurrence_freq"]
           id?: string
           interval_count?: number
@@ -875,6 +877,7 @@ export type Database = {
           credit_card_id?: string | null
           description?: string
           end_date?: string | null
+          exclude_from_projection?: boolean
           frequency?: Database["public"]["Enums"]["recurrence_freq"]
           id?: string
           interval_count?: number

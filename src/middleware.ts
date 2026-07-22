@@ -4,6 +4,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 /** Prefixos de rota protegidos — grupo (app). */
 const PROTECTED_PREFIXES = [
   "/dashboard",
+  "/projecao",
   "/transacoes",
   "/contas",
   "/categorias",

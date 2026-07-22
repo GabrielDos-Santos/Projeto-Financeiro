@@ -8,6 +8,7 @@ import { CategorySpendingSection } from "@/features/dashboard/components/categor
 import { RecentTransactions } from "@/features/dashboard/components/recent-transactions";
 import { CardsOverview } from "@/features/dashboard/components/cards-overview";
 import { GoalsOverview } from "@/features/dashboard/components/goals-overview";
+import { ProjectionCard } from "@/features/projection/components/projection-card";
 import {
   PanelSkeleton,
   SummaryCardsSkeleton,
@@ -25,6 +26,10 @@ export default function DashboardPage() {
 
       <Suspense fallback={<SummaryCardsSkeleton />}>
         <SummaryCards />
+      </Suspense>
+
+      <Suspense fallback={<PanelSkeleton height={220} />}>
+        <ProjectionCard />
       </Suspense>
 
       <div className="grid gap-4 lg:grid-cols-3">

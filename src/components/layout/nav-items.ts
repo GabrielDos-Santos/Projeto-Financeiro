@@ -9,6 +9,7 @@ import {
   Settings,
   Tags,
   Target,
+  TrendingUp,
   Users,
   Wallet,
   type LucideIcon,
@@ -23,6 +24,7 @@ export type NavItem = {
 /** Navegação principal — espelha as rotas do grupo (app) (ARQUITETURA.md §7). */
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/projecao", label: "Projeção", icon: TrendingUp },
   { href: "/transacoes", label: "Transações", icon: ArrowLeftRight },
   { href: "/contas", label: "Contas", icon: Wallet },
   { href: "/categorias", label: "Categorias", icon: Tags },
@@ -41,23 +43,26 @@ export const SETTINGS_ITEM: NavItem = {
   icon: Settings,
 };
 
+/** Busca por `href` — índice numérico quebrava calado ao inserir item novo. */
+function navItem(href: string): NavItem {
+  const item = NAV_ITEMS.find((candidate) => candidate.href === href);
+  if (!item) throw new Error(`Item de navegação inexistente: ${href}`);
+  return item;
+}
+
 /** Itens fixos da bottom bar no mobile (4 + o botão "Mais" = 5 colunas). */
 export const MOBILE_NAV_ITEMS: NavItem[] = [
-  NAV_ITEMS[0]!, // Dashboard
-  NAV_ITEMS[1]!, // Transações
-  NAV_ITEMS[2]!, // Contas
-  NAV_ITEMS[4]!, // Cartões
+  navItem("/dashboard"),
+  navItem("/transacoes"),
+  navItem("/contas"),
+  navItem("/cartoes"),
 ];
 
 /** Rotas fora da bottom bar — aparecem no menu "Mais" do mobile (Fase 16). */
 export const MOBILE_OVERFLOW_ITEMS: NavItem[] = [
-  NAV_ITEMS[3]!, // Categorias
-  NAV_ITEMS[5]!, // Empréstimos
-  NAV_ITEMS[6]!, // Recorrentes
-  NAV_ITEMS[7]!, // Orçamentos
-  NAV_ITEMS[8]!, // Metas
-  NAV_ITEMS[9]!, // Relatórios
-  NAV_ITEMS[10]!, // Família
+  ...NAV_ITEMS.filter(
+    (item) => !MOBILE_NAV_ITEMS.some((fixed) => fixed.href === item.href),
+  ),
   SETTINGS_ITEM,
 ];
 

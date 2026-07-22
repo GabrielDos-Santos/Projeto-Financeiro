@@ -115,6 +115,11 @@ function RecurringCard({
             <div className="flex items-center gap-2">
               <p className="truncate font-medium">{recurring.description}</p>
               {!active && <Badge variant="outline">Pausada</Badge>}
+              {recurring.exclude_from_projection && (
+                <Badge variant="outline" title="Não entra no saldo previsto em /projeção">
+                  Fora da projeção
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               {frequencyLabel(recurring.frequency, recurring.interval_count)}

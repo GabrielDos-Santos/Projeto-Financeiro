@@ -32,6 +32,7 @@ function toRow(data: z.infer<typeof recurringFormSchema>) {
     interval_count: data.intervalCount,
     start_date: data.startDate,
     end_date: data.endDate,
+    exclude_from_projection: data.excludeFromProjection,
   };
 }
 
