@@ -270,7 +270,7 @@ function InvoiceCard({
             <ChevronDown
               className={cn("transition-transform", expanded && "rotate-180")}
             />
-            {expanded ? "Ocultar itens" : "Ver itens"}
+            {expanded ? "Ocultar detalhes" : "Ver detalhes"}
           </Button>
           <div className="flex-1" />
           {isPaid ? (
