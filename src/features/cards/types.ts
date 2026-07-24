@@ -14,6 +14,36 @@ export type InvoiceWithHistory = InvoiceTotals & {
   paymentIsHistorical: boolean;
 };
 
+/** Restante a pagar de uma fatura = total − já pago (nunca negativo). */
+export function invoiceRemainingCents(invoice: InvoiceTotals): number {
+  return Math.max(0, (invoice.total_cents ?? 0) - (invoice.paid_cents ?? 0));
+}
+
+/** Fatura com algum pagamento, mas ainda não quitada por inteiro. */
+export function isPartiallyPaid(invoice: InvoiceTotals): boolean {
+  return (
+    invoice.status !== "paid" &&
+    (invoice.paid_cents ?? 0) > 0 &&
+    (invoice.paid_cents ?? 0) < (invoice.total_cents ?? 0)
+  );
+}
+
+/**
+ * Um pagamento parcial da fatura (linha de `credit_card_invoice_payments`
+ * enriquecida com dados da transação de despesa que ela representa).
+ */
+export type InvoicePayment = {
+  id: string;
+  amountCents: number;
+  date: string;
+  isHistorical: boolean;
+};
+
+/** Fatura + histórico legado + a lista de pagamentos (parciais/total) feitos. */
+export type InvoiceWithPayments = InvoiceWithHistory & {
+  payments: InvoicePayment[];
+};
+
 /** Cartão + limite disponível e total da fatura aberta (derivados no RSC). */
 export type CardWithLimit = CreditCard & {
   availableCents: number;

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Loader2, RotateCcw } from "lucide-react";
+import { ChevronDown, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { createClient } from "@/lib/supabase/client";
@@ -13,11 +13,14 @@ import type {
   AccountOption,
   CategoryOption,
 } from "@/features/transactions/types";
-import { reopenInvoice } from "../actions";
+import { removeInvoicePayment, reopenInvoice } from "../actions";
 import {
   INVOICE_STATUS_LABELS,
+  invoiceRemainingCents,
+  isPartiallyPaid,
+  type InvoicePayment,
   type InvoiceTotals,
-  type InvoiceWithHistory,
+  type InvoiceWithPayments,
 } from "../types";
 import { PayInvoiceDialog } from "./pay-invoice-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -97,13 +100,63 @@ function InvoiceItems({ invoiceId }: { invoiceId: string }) {
   );
 }
 
+/** Lista dos pagamentos (parciais + o que quitou) feitos na fatura. */
+function InvoicePayments({
+  payments,
+  onRemove,
+  removingId,
+}: {
+  payments: InvoicePayment[];
+  onRemove: (payment: InvoicePayment) => void;
+  removingId: string | null;
+}) {
+  if (payments.length === 0) return null;
+  return (
+    <div className="border-t pt-2">
+      <p className="mb-1 text-xs font-medium text-muted-foreground">
+        Pagamentos
+      </p>
+      <ul className="divide-y divide-border">
+        {payments.map((payment) => (
+          <li
+            key={payment.id}
+            className="flex items-center gap-2 py-1.5 text-sm"
+          >
+            <span className="w-20 shrink-0 text-xs text-muted-foreground">
+              {payment.date ? formatDateBR(payment.date) : "—"}
+            </span>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+              {formatCents(payment.amountCents)}
+              {payment.isHistorical && <HistoricalBadge />}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground hover:text-destructive"
+              disabled={removingId === payment.id}
+              onClick={() => onRemove(payment)}
+              aria-label="Remover pagamento"
+            >
+              {removingId === payment.id ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Trash2 />
+              )}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function InvoiceCard({
   invoice,
   accounts,
   categories,
   labelByDueMonth,
 }: {
-  invoice: InvoiceWithHistory;
+  invoice: InvoiceWithPayments;
   accounts: AccountOption[];
   categories: CategoryOption[];
   labelByDueMonth: boolean;
@@ -111,10 +164,15 @@ function InvoiceCard({
   const [expanded, setExpanded] = React.useState(false);
   const [payOpen, setPayOpen] = React.useState(false);
   const [reopenOpen, setReopenOpen] = React.useState(false);
+  const [paymentToRemove, setPaymentToRemove] =
+    React.useState<InvoicePayment | null>(null);
   const [isPending, startTransition] = React.useTransition();
+  const [removingId, setRemovingId] = React.useState<string | null>(null);
 
   const isPaid = invoice.status === "paid";
-  const hasTotal = (invoice.total_cents ?? 0) > 0;
+  const partial = isPartiallyPaid(invoice);
+  const remaining = invoiceRemainingCents(invoice);
+  const paidCents = invoice.paid_cents ?? 0;
 
   function handleReopen() {
     startTransition(async () => {
@@ -129,12 +187,28 @@ function InvoiceCard({
     });
   }
 
+  function handleRemovePayment() {
+    const payment = paymentToRemove;
+    if (!payment) return;
+    setRemovingId(payment.id);
+    startTransition(async () => {
+      const result = await removeInvoicePayment(payment.id);
+      setRemovingId(null);
+      setPaymentToRemove(null);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Pagamento removido.");
+    });
+  }
+
   return (
     <Card>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium capitalize">
                 {/* Rótulo por cartão (migration 0013) — bancos variam: a
                  * maioria nomeia pela competência, o Sicredi pelo mês de
@@ -148,6 +222,14 @@ function InvoiceCard({
                 })()}
               </p>
               <StatusBadge status={invoice.status} />
+              {partial && (
+                <Badge
+                  variant="outline"
+                  className="border-sky-500/40 text-sky-600 dark:text-sky-400"
+                >
+                  Parcialmente paga
+                </Badge>
+              )}
               {isPaid && invoice.paymentIsHistorical && <HistoricalBadge />}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -163,9 +245,18 @@ function InvoiceCard({
             <p className="text-lg font-semibold tabular-nums">
               {formatCents(invoice.total_cents ?? 0)}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {invoice.items_count ?? 0} item(s)
-            </p>
+            {partial ? (
+              <p className="text-xs text-muted-foreground tabular-nums">
+                Pago {formatCents(paidCents)} · falta{" "}
+                <span className="font-medium text-foreground">
+                  {formatCents(remaining)}
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {invoice.items_count ?? 0} item(s)
+              </p>
+            )}
           </div>
         </div>
 
@@ -195,17 +286,22 @@ function InvoiceCard({
           ) : (
             <Button
               size="sm"
-              disabled={!hasTotal}
+              disabled={remaining <= 0}
               onClick={() => setPayOpen(true)}
             >
-              Pagar fatura
+              {partial ? "Pagar restante" : "Pagar fatura"}
             </Button>
           )}
         </div>
 
         {expanded && invoice.invoice_id && (
-          <div className="border-t pt-1">
+          <div className="space-y-2 border-t pt-1">
             <InvoiceItems invoiceId={invoice.invoice_id} />
+            <InvoicePayments
+              payments={invoice.payments}
+              onRemove={setPaymentToRemove}
+              removingId={removingId}
+            />
           </div>
         )}
       </CardContent>
@@ -221,10 +317,25 @@ function InvoiceCard({
         open={reopenOpen}
         onOpenChange={setReopenOpen}
         title="Reabrir fatura"
-        description="A despesa de pagamento será apagada e os itens da fatura voltam a pendente. Use para corrigir um pagamento equivocado."
+        description="Todos os pagamentos desta fatura serão apagados e os itens voltam a pendente. Use para corrigir um pagamento equivocado."
         confirmLabel="Reabrir"
         isPending={isPending}
         onConfirm={handleReopen}
+      />
+      <ConfirmDialog
+        open={paymentToRemove != null}
+        onOpenChange={(open) => {
+          if (!open) setPaymentToRemove(null);
+        }}
+        title="Remover pagamento"
+        description={
+          isPaid
+            ? "A despesa deste pagamento será apagada e a fatura deixará de estar quitada (itens voltam a pendente)."
+            : "A despesa deste pagamento será apagada e o valor volta a constar como devido na fatura."
+        }
+        confirmLabel="Remover"
+        isPending={isPending}
+        onConfirm={handleRemovePayment}
       />
     </Card>
   );
@@ -236,7 +347,7 @@ export function InvoiceTimeline({
   categories,
   labelByDueMonth = false,
 }: {
-  invoices: InvoiceWithHistory[];
+  invoices: InvoiceWithPayments[];
   accounts: AccountOption[];
   categories: CategoryOption[];
   /** `credit_cards.invoice_name_by_due_month` do cartão desta timeline. */

@@ -143,7 +143,7 @@ export async function getCategorySpending(): Promise<CategorySlice[]> {
   const supabase = await createClient();
   const { start, end } = currentMonthRange();
 
-  const [entries, invoices, categories] = await Promise.all([
+  const [entries, invoices, partialPayments, categories] = await Promise.all([
     supabase
       .from("v_entries")
       .select("transaction_id, category_id, amount_cents")
@@ -155,12 +155,18 @@ export async function getCategorySpending(): Promise<CategorySlice[]> {
       .from("credit_card_invoices")
       .select("payment_transaction_id")
       .not("payment_transaction_id", "is", null),
+    // Pagamentos parciais (0019): também são despesa de pagamento e não podem
+    // contar por categoria — as compras já contam por competência.
+    supabase.from("credit_card_invoice_payments").select("transaction_id"),
     supabase.from("categories").select("id, name, color"),
   ]);
 
-  const paymentIds = new Set(
-    (invoices.data ?? []).map((i) => i.payment_transaction_id),
-  );
+  const paymentIds = new Set<string>([
+    ...(invoices.data ?? [])
+      .map((i) => i.payment_transaction_id)
+      .filter((id): id is string => id != null),
+    ...(partialPayments.data ?? []).map((p) => p.transaction_id),
+  ]);
   const categoryById = new Map((categories.data ?? []).map((c) => [c.id, c]));
 
   const totals = new Map<string, number>();

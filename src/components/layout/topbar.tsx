@@ -19,7 +19,7 @@ export function Topbar({ user }: { user: SessionUser }) {
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-6">
       <div className="flex min-w-0 items-baseline gap-2">
         <span className="hidden text-sm text-muted-foreground md:inline">
-          FinApp
+          Zeno
         </span>
         {section && (
           <>

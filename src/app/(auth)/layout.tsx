@@ -1,5 +1,5 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Wallet } from "lucide-react";
 
 export default function AuthLayout({
   children,
@@ -9,12 +9,17 @@ export default function AuthLayout({
       <div className="flex w-full max-w-sm flex-col gap-6">
         <Link
           href="/"
-          className="flex items-center justify-center gap-2 self-center font-semibold"
+          className="flex flex-col items-center gap-3 self-center font-semibold"
         >
-          <span className="flex size-8 items-center justify-center rounded-lg border bg-card text-card-foreground">
-            <Wallet className="size-4" aria-hidden />
-          </span>
-          FinApp
+          <Image
+            src="/icons/icon-192.png"
+            alt="Zeno"
+            width={56}
+            height={56}
+            priority
+            className="rounded-2xl shadow-sm ring-1 ring-border"
+          />
+          <span className="text-lg tracking-tight">Zeno</span>
         </Link>
         {children}
       </div>

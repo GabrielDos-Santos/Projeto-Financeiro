@@ -35,11 +35,20 @@ export type CardFormInput = z.infer<typeof cardFormSchema>;
 
 export const cardIdSchema = z.uuid("Cartão inválido");
 
-/** Pagar fatura: cria a despesa na conta escolhida e quita a fatura (D5). */
+/**
+ * Pagar fatura (D5): cria a despesa na conta e abate `amountCents` da fatura.
+ * O pagamento pode ser PARCIAL — o teto real (≤ restante) é validado no servidor
+ * contra o total calculado da fatura; aqui só limitamos o intervalo bruto.
+ */
 export const payInvoiceSchema = z.object({
   invoiceId: z.uuid("Fatura inválida"),
   accountId: z.uuid("Escolha a conta de pagamento"),
   categoryId: z.uuid("Escolha a categoria"),
+  amountCents: z
+    .number("Informe o valor a pagar")
+    .int("Valor inválido")
+    .min(1, "Informe um valor maior que zero")
+    .max(MAX_MONEY_CENTS, "Valor muito alto"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data do pagamento"),
   // Fase 17 (decisão 57) — pagamento retroativo de fatura antiga: sem
   // .default() de propósito (armadilha das decisões 37/43/52 com o RHF);
@@ -50,3 +59,6 @@ export const payInvoiceSchema = z.object({
 export type PayInvoiceInput = z.infer<typeof payInvoiceSchema>;
 
 export const invoiceIdSchema = z.uuid("Fatura inválida");
+
+/** Remover um pagamento parcial (desfaz aquele lançamento específico). */
+export const invoicePaymentIdSchema = z.uuid("Pagamento inválido");

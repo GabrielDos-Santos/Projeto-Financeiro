@@ -10,8 +10,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "FinApp — Finanças pessoais",
-    template: "%s · FinApp",
+    default: "Zeno — Finanças pessoais",
+    template: "%s · Zeno",
   },
   description:
     "Controle completo da sua vida financeira: contas, cartões, orçamentos, metas e relatórios.",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Finanças",
+    title: "Zeno",
   },
   icons: {
     apple: "/icons/icon-180.png",

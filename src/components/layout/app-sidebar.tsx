@@ -64,12 +64,12 @@ export function AppSidebar() {
         <Link
           href="/dashboard"
           className="flex items-center gap-2 font-semibold"
-          title="FinApp"
+          title="Zeno"
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-card text-card-foreground">
             <Wallet className="size-4" aria-hidden />
           </span>
-          {!collapsed && <span>FinApp</span>}
+          {!collapsed && <span>Zeno</span>}
         </Link>
       </div>
 

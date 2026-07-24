@@ -7,7 +7,7 @@ export async function buildTableXlsx(
   rows: string[][],
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "FinApp";
+  workbook.creator = "Zeno";
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet(sheetName);

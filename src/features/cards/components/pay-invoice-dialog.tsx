@@ -17,7 +17,7 @@ import type {
 } from "@/features/transactions/types";
 import { payInvoice } from "../actions";
 import { payInvoiceSchema, type PayInvoiceInput } from "../schemas";
-import type { InvoiceTotals } from "../types";
+import { invoiceRemainingCents, type InvoiceTotals } from "../types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/shared/date-picker";
 import { DomainIcon } from "@/components/shared/domain-icon";
+import { MoneyInput } from "@/components/shared/money-input";
 
 export function PayInvoiceDialog({
   invoice,
@@ -62,12 +63,17 @@ export function PayInvoiceDialog({
   const [isPending, startTransition] = React.useTransition();
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
+  // Restante = total − já pago. O pagamento pode cobrir tudo (default) ou parte.
+  const remaining = invoiceRemainingCents(invoice);
+  const alreadyPaid = invoice.paid_cents ?? 0;
+
   const form = useForm<PayInvoiceInput>({
     resolver: zodResolver(payInvoiceSchema),
     defaultValues: {
       invoiceId: invoice.invoice_id ?? "",
       accountId: accounts[0]?.id ?? "",
       categoryId: "",
+      amountCents: remaining,
       date: todayISO(),
       affectsBalance: true,
     },
@@ -79,11 +85,12 @@ export function PayInvoiceDialog({
         invoiceId: invoice.invoice_id ?? "",
         accountId: accounts[0]?.id ?? "",
         categoryId: "",
+        amountCents: remaining,
         date: todayISO(),
         affectsBalance: true,
       });
     }
-  }, [open, invoice.invoice_id, accounts, form]);
+  }, [open, invoice.invoice_id, remaining, accounts, form]);
 
   // Hint (decisão 57): fatura de mês passado é candidata a já estar
   // refletida no saldo inicial da conta — sugere marcar "pagamento histórico".
@@ -92,7 +99,17 @@ export function PayInvoiceDialog({
     invoice.reference_month && invoice.reference_month < currentMonthISO,
   );
 
+  const amount = form.watch("amountCents") || 0;
+  const isPartial = amount > 0 && amount < remaining;
+
   function onSubmit(values: PayInvoiceInput) {
+    // Guarda no cliente: o servidor revalida contra o total real da fatura.
+    if (values.amountCents > remaining) {
+      form.setError("amountCents", {
+        message: `Máximo: ${formatCents(remaining)}`,
+      });
+      return;
+    }
     startTransition(async () => {
       const result = await payInvoice(values);
       if (!result.ok) {
@@ -100,7 +117,11 @@ export function PayInvoiceDialog({
         toast.error(result.error);
         return;
       }
-      toast.success("Fatura paga.");
+      toast.success(
+        values.amountCents >= remaining
+          ? "Fatura paga."
+          : "Pagamento parcial registrado.",
+      );
       onOpenChange(false);
     });
   }
@@ -111,8 +132,13 @@ export function PayInvoiceDialog({
         <DialogHeader>
           <DialogTitle>Pagar fatura</DialogTitle>
           <DialogDescription>
-            Total de {formatCents(invoice.total_cents ?? 0)}. Uma despesa será
-            criada na conta escolhida e a fatura será quitada.
+            {alreadyPaid > 0
+              ? `Restam ${formatCents(remaining)} de ${formatCents(
+                  invoice.total_cents ?? 0,
+                )} (já pago ${formatCents(alreadyPaid)}). `
+              : `Total de ${formatCents(invoice.total_cents ?? 0)}. `}
+            Uma despesa é criada na conta escolhida; a fatura só é quitada quando
+            o valor for pago por inteiro.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -121,6 +147,33 @@ export function PayInvoiceDialog({
             className="grid gap-4"
             noValidate
           >
+            <FormField
+              control={form.control}
+              name="amountCents"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Valor a pagar</FormLabel>
+                  <FormControl>
+                    <MoneyInput
+                      value={field.value ?? 0}
+                      onValueChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="flex items-center justify-between gap-2">
+                    <FormMessage />
+                    {amount !== remaining && remaining > 0 && (
+                      <button
+                        type="button"
+                        className="ml-auto text-xs text-primary hover:underline"
+                        onClick={() => field.onChange(remaining)}
+                      >
+                        Pagar tudo ({formatCents(remaining)})
+                      </button>
+                    )}
+                  </div>
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="accountId"
@@ -230,9 +283,9 @@ export function PayInvoiceDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending || amount <= 0}>
                 {isPending ? <Loader2 className="animate-spin" /> : null}
-                Pagar {formatCents(invoice.total_cents ?? 0)}
+                {isPartial ? "Pagar parcial" : "Pagar"} {formatCents(amount)}
               </Button>
             </DialogFooter>
           </form>

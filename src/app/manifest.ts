@@ -7,8 +7,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sistema Financeiro Pessoal",
-    short_name: "Finanças",
+    name: "Zeno — Finanças pessoais",
+    short_name: "Zeno",
     description:
       "Contas, transações, cartões, orçamentos e metas em um só lugar.",
     start_url: "/dashboard",
